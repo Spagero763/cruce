@@ -13,6 +13,7 @@ import { createWorker } from "./worker.js";
 /** Wires everything once per process; shared by the local server and the serverless entry. */
 export async function boot(env: NodeJS.ProcessEnv = process.env, db?: Db) {
   const cfg = loadConfig(env);
+  if (!db && !cfg.databaseUrl && env.PGLITE_DIR) db = await pglite(env.PGLITE_DIR);
   if (!db && !cfg.databaseUrl) throw new Error("DATABASE_URL is not set");
   const store = new Store(db ?? connect(cfg.databaseUrl!));
   await store.migrate();
@@ -24,4 +25,11 @@ export async function boot(env: NodeJS.ProcessEnv = process.env, db?: Db) {
   const worker = createWorker(cfg, store, chain, engine, rates);
   const app = createApp(cfg, store, chain, venues, rates, engine, worker);
   return { cfg, store, chain, buy, venues, rates, engine, worker, app };
+}
+
+/** An in-process Postgres on disk, for a machine with no database of its own. */
+async function pglite(dir: string): Promise<Db> {
+  const { PGlite } = await import("@electric-sql/pglite");
+  const pg = new PGlite(dir);
+  return { query: async <T>(text: string, params?: unknown[]) => (await pg.query(text, params as never[])).rows as T[] };
 }

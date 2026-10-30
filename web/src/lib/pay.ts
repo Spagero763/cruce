@@ -76,10 +76,9 @@ export async function payOrder(opts: {
   const res = await onServerClock(offset, () => wrapFetchWithPayment(fetch, client)(payUrl, { method: "POST" }));
   if (!res.ok) throw new Error((await refusal(res)) ?? `Payment failed (${res.status})`);
   const receipt = res.headers.get("payment-response") ?? res.headers.get("x-payment-response");
-  const body = (await res.json().catch(() => ({}))) as { order?: Order | null };
   try {
-    return { transaction: receipt ? (JSON.parse(atob(receipt)).transaction ?? null) : null, order: body.order ?? null };
+    return { transaction: receipt ? (JSON.parse(atob(receipt)).transaction ?? null) : null, order: null };
   } catch {
-    return { transaction: null, order: body.order ?? null };
+    return { transaction: null, order: null };
   }
 }

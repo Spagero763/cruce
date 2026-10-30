@@ -287,10 +287,8 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
     await next();
   });
   app.use(paymentMiddleware(routes, server));
-  app.post(PAY_ROUTE, async (c) => {
-    const order = await store.order(c.req.param("id"));
-    return c.json({ ok: true, order: order ? publicOrder(order) : null });
-  });
+  // Settlement and the run happen after this handler, so the state is read back with a GET.
+  app.post(PAY_ROUTE, (c) => c.json({ ok: true, id: c.req.param("id") }));
 
   return app;
 }

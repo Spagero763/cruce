@@ -136,9 +136,9 @@ export class Cruce {
     client.setSpendControls({ maxAmountPerPayment: false, allowedAssets: [{ network, asset: currency.address, maxAmountPerPayment: order.amountIn }] });
 
     const res = await wrapFetchWithPayment(fetch, client)(payUrl, { method: "POST" });
-    const body = (await res.json().catch(() => ({}))) as { error?: string; order?: Order | null };
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
     if (!res.ok) throw new CruceError(res.status, body.error ?? `payment failed (${res.status})`);
-    return body.order ?? (await this.order(order.id));
+    return this.order(order.id);
   }
 
   async order(id: string): Promise<Order> {

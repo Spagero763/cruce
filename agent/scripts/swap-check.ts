@@ -21,9 +21,15 @@ if (!["textile", "v3", "v4"].includes(venue) || !isCurrency(fromArg) || !isCurre
 const from = fromArg as CurrencyCode;
 const to = toArg as CurrencyCode;
 const cfg = loadConfig();
-if (!cfg.databaseUrl) throw new Error("DATABASE_URL is needed for the wallet lease");
-const store = new Store(connect(cfg.databaseUrl));
+// The wallet lease lives in whatever database is at hand; a throwaway one is fine for a check.
+const store = new Store(cfg.databaseUrl ? connect(cfg.databaseUrl) : await localDb());
 await store.migrate();
+
+async function localDb() {
+  const { PGlite } = await import("@electric-sql/pglite");
+  const pg = new PGlite();
+  return { query: async <T>(text: string, params?: unknown[]) => (await pg.query(text, params as never[])).rows as T[] };
+}
 const chain = createChain(cfg, store);
 const amountIn = parseUnits(amountArg, CURRENCIES[from].decimals);
 const fmt = (code: CurrencyCode, v: bigint) => `${formatUnits(v, CURRENCIES[code].decimals)} ${code}`;
