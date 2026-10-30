@@ -1,0 +1,23 @@
+.glow {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.glow-light {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 720px;
+  height: 720px;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in oklab, var(--cross) 34%, transparent) 0%, transparent 62%);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.glow > * { position: relative; }
+.glow > .glow-light { position: absolute; }

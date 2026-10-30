@@ -224,7 +224,30 @@
   background: var(--ink);
   color: var(--paper);
 }
+.order-done { position: relative; overflow: hidden; }
 .order-done .eyebrow { color: color-mix(in oklab, var(--paper) 60%, var(--ink)); }
+
+/* Pressed in once the money has landed. */
+.stamp {
+  position: absolute;
+  right: 18px;
+  top: 16px;
+  padding: 6px 14px;
+  border: 2px solid var(--landed);
+  border-radius: 10px;
+  color: var(--landed);
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  rotate: -8deg;
+  animation: stamp-in 0.9s cubic-bezier(0.3, 0, 0.2, 1.18) both;
+}
+
+@keyframes stamp-in {
+  from { opacity: 0; transform: scale(1.8); }
+  60% { opacity: 1; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
 .order-done .display { font-size: var(--step-3); color: var(--landed); }
 .order-done .note { color: color-mix(in oklab, var(--paper) 70%, var(--ink)); }
 

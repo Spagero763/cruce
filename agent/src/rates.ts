@@ -24,7 +24,7 @@ const FIATS = ["ARS", "BRL", "COP", "MXN", "CLP", "PEN", "NGN"];
 /** Boards read through a rented browser. Each is a public page with one headline rate. */
 const BOARDS: { fiat: string; url: string; ask: string }[] = [
   { fiat: "ARS", url: "https://dolarhoy.com/cotizaciondolarblue", ask: "the dólar blue selling price (venta) in pesos per dollar" },
-  { fiat: "NGN", url: "https://abokifx.com/", ask: "the current black market USD selling rate in naira per dollar" },
+  { fiat: "BRL", url: "https://dolarhoje.com/dolar-turismo/", ask: "the dólar turismo price in reais per dollar (the sentence 'A cotação do dolar turismo hoje é R$ …')" },
 ];
 
 export const EXTRACT_PROMPT =
@@ -62,6 +62,10 @@ export function createRates(store: Store, buy: Buy, fetchFn: typeof fetch = fetc
         else if (blue) street.ARS = blue;
         if (Object.keys(street).length) await store.setRate("street:ARS", { value: street.ARS, source: "dolarapi" });
       }
+      // Brazil publishes the tourist dollar, the rate a person pays at a casa de câmbio, as a feed.
+      const br = await fetchFn("https://economia.awesomeapi.com.br/json/last/USD-BRLT", { signal: AbortSignal.timeout(8_000) }).then((r) => r.json()).catch(() => null);
+      const turismo = Number((br as { USDBRLT?: { ask?: string } } | null)?.USDBRLT?.ask);
+      if (turismo > 0 && !(await store.getRate(`street:BRL`))) await store.setRate("street:BRL", { value: turismo, source: "awesomeapi" });
       if (Object.keys(rates).length) await store.setRate("official", rates);
       return rates;
     } catch (err) {

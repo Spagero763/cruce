@@ -3,10 +3,12 @@ import { useSearchParams } from "react-router-dom";
 import { Converter } from "../components/Converter";
 import { Crossing } from "../components/Crossing";
 import { CurrencyMark } from "../components/CurrencyMark";
+import { Glow } from "../components/Glow";
 import { LiveActivity } from "../components/LiveActivity";
 import { Magnetic, Arrow } from "../components/Magnetic";
 import { Reveal } from "../components/Reveal";
-import { api, type AppConfig } from "../lib/api";
+import { api, type AppConfig, type Quote } from "../lib/api";
+import { money } from "../lib/format";
 import { useI18n, type Key } from "../lib/i18n";
 import { gsap, lite, prefersReducedMotion, ScrollTrigger, useGSAP } from "../lib/motion";
 import "./Landing.css";
@@ -14,13 +16,6 @@ import "./app.css";
 
 const MARQUEE = ["wARS", "wBRL", "cNGN", "wCOP", "USAT", "USDT", "USDC", "wMXN", "wCLP", "wPEN"];
 const LABEL: Record<string, string> = { USAT: "USA₮", USDT: "USD₮" };
-const PAIRS: [string, string][] = [
-  ["wARS", "wBRL"],
-  ["cNGN", "wARS"],
-  ["USDT", "wBRL"],
-  ["wBRL", "cNGN"],
-  ["USAT", "wARS"],
-];
 
 /** The crossing that follows the story. It owns its stage so a scroll step re-renders only this. */
 const StoryStage = forwardRef<{ set(i: number): void }, { eyebrow: string }>(function StoryStage({ eyebrow }, ref) {
@@ -43,7 +38,7 @@ const StoryStage = forwardRef<{ set(i: number): void }, { eyebrow: string }>(fun
 
 const Marquee = memo(function Marquee() {
   return (
-    <section className="marquee on-ink" aria-hidden>
+    <section className="marquee" aria-hidden>
       <div className="marquee-track">
         {[...MARQUEE, ...MARQUEE, ...MARQUEE, ...MARQUEE].map((m, i) => (
           <span key={i} className="marquee-item display">
@@ -55,26 +50,23 @@ const Marquee = memo(function Marquee() {
   );
 });
 
-/** The hero's crossing changes pair every few seconds, each change played once. */
-function HeroCross() {
-  const [i, setI] = useState(0);
-  useEffect(() => {
-    if (lite() || prefersReducedMotion()) return;
-    const timer = setInterval(() => setI((n) => (n + 1) % PAIRS.length), 4200);
-    return () => clearInterval(timer);
-  }, []);
-  return <Crossing from={PAIRS[i][0]} to={PAIRS[i][1]} size="md" className="hero-cross" />;
-}
-
 export function Landing() {
   const { t } = useI18n();
   const [params] = useSearchParams();
   const [config, setConfig] = useState<AppConfig | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const stageRef = useRef<{ set(i: number): void }>(null);
+  const quoteRef = useRef<Quote | null>(null);
+  const [pair, setPair] = useState<{ from: string; to: string }>({ from: "wARS", to: "wBRL" });
 
   useEffect(() => {
     void api.config().then(setConfig).catch(() => {});
+  }, []);
+
+  // The first screen is dark: the nav knows while it is over it.
+  useEffect(() => {
+    document.body.classList.add("hero-dark");
+    return () => document.body.classList.remove("hero-dark");
   }, []);
 
   useGSAP(
@@ -83,6 +75,43 @@ export function Landing() {
       const light = lite();
       gsap.fromTo(".hero-body", { y: 20, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 1, ease: "hold", delay: 0.5 });
       gsap.fromTo(".hero-cv", { y: 40, autoAlpha: 0, scale: 0.98 }, { y: 0, autoAlpha: 1, scale: 1, duration: 1.3, ease: "hold", delay: 0.35 });
+
+      ScrollTrigger.create({
+        trigger: ".hero",
+        start: "top 60px",
+        end: "bottom 60px",
+        onToggle: (self) => document.body.classList.toggle("hero-dark", self.isActive),
+      });
+
+      // Scrolling out of the hero drives the crossing: the discs trade places through the dollar and
+      // the amount received counts up with them. Scrubbed, so it reads at whatever pace you scroll.
+      const a = root.current!.querySelector<HTMLElement>(".hero-cross .x-disc--a");
+      const b = root.current!.querySelector<HTMLElement>(".hero-cross .x-disc--b");
+      const hub = root.current!.querySelector<HTMLElement>(".hero-cross .x-hub");
+      const count = root.current!.querySelector<HTMLElement>(".hero-count");
+      if (a && b && hub && count && !light) {
+        const n = { p: 0 };
+        gsap
+          .timeline({ scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: 0.6 } })
+          .to(a, { motionPath: { path: ".hero-cross .x-path-a", align: ".hero-cross .x-path-a", alignOrigin: [0.5, 0.5] }, ease: "none" }, 0)
+          .to(b, { motionPath: { path: ".hero-cross .x-path-b", align: ".hero-cross .x-path-b", alignOrigin: [0.5, 0.5] }, ease: "none" }, 0)
+          .fromTo(hub, { scale: 1 }, { scale: 1.4, ease: "none" }, 0)
+          .to(hub, { scale: 1, ease: "none" }, 0.5)
+          .to(
+            n,
+            {
+              p: 1,
+              ease: "none",
+              onUpdate: () => {
+                const q = quoteRef.current;
+                const cur = config?.currencies.find((c) => c.code === q?.to);
+                count.style.opacity = n.p > 0.03 && q ? "1" : "0";
+                if (q && cur) count.textContent = money((BigInt(q.estOut) * BigInt(Math.round(n.p * 1000))) / 1000n, cur);
+              },
+            },
+            0,
+          );
+      }
 
       const track = root.current!.querySelector<HTMLElement>(".marquee-track")!;
       const loop = gsap.to(track, { xPercent: -50, duration: light ? 40 : 28, ease: "none", repeat: -1 });
@@ -116,7 +145,7 @@ export function Landing() {
         { scale: 1.15, rotate: 0, ease: "none", scrollTrigger: { trigger: ".cta", start: "top bottom", end: "bottom top", scrub: 1 } },
       );
     },
-    { scope: root },
+    { scope: root, dependencies: [config] },
   );
 
   // The crossing stays pinned while you scroll through one conversion, a step at a time.
@@ -157,23 +186,32 @@ export function Landing() {
 
   return (
     <div ref={root} className="landing">
-      <section className="hero wrap">
-        <div className="hero-copy">
-          <p className="eyebrow">{t("hero.kicker")}</p>
-          <Reveal as="h1" className="display hero-title" html={t("hero.title")} onScroll={false} delay={0.15} />
-          <p className="hero-body">{t("hero.body")}</p>
-          <HeroCross />
-        </div>
-        <div className="hero-visual">
-          {config && (
-            <Converter
-              config={config}
-              className="hero-cv"
-              start={{ from: params.get("from") ?? undefined, to: params.get("to") ?? undefined, amount: params.get("amount") ?? undefined, partner: params.get("ref") }}
-            />
-          )}
-        </div>
-      </section>
+      <Glow className="hero-glow">
+        <section className="hero wrap">
+          <div className="hero-copy">
+            <p className="eyebrow">{t("hero.kicker")}</p>
+            <Reveal as="h1" className="display hero-title" html={t("hero.title")} onScroll={false} delay={0.15} />
+            <p className="hero-body">{t("hero.body")}</p>
+            <div className="hero-cross-wrap">
+              <Crossing from={pair.from} to={pair.to} size="md" className="hero-cross" />
+              <span className="hero-count display" aria-hidden />
+            </div>
+          </div>
+          <div className="hero-visual">
+            {config && (
+              <Converter
+                config={config}
+                className="hero-cv"
+                start={{ from: params.get("from") ?? undefined, to: params.get("to") ?? undefined, amount: params.get("amount") ?? undefined, partner: params.get("ref") }}
+                onQuote={(q) => {
+                  quoteRef.current = q;
+                  if (q && (q.from !== pair.from || q.to !== pair.to)) setPair({ from: q.from, to: q.to });
+                }}
+              />
+            )}
+          </div>
+        </section>
+      </Glow>
 
       <Marquee />
 
@@ -208,7 +246,7 @@ export function Landing() {
 
       <LiveActivity />
 
-      <section className="devs on-ink">
+      <Glow className="devs">
         <div className="wrap devs-grid">
           <div>
             <p className="eyebrow">{t("dev.eyebrow")}</p>
@@ -227,7 +265,7 @@ export function Landing() {
             <span className="c">{"// order.status === \"done\", legs with their txs"}</span>
           </pre>
         </div>
-      </section>
+      </Glow>
 
       <section className="cta">
         <svg className="cta-ring" viewBox="0 0 400 200" aria-hidden>

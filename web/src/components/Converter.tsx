@@ -5,6 +5,7 @@ import { useI18n } from "../lib/i18n";
 import { useWallet } from "../lib/wallet";
 import { CurrencyMark } from "./CurrencyMark";
 import { Magnetic, Arrow } from "./Magnetic";
+import { Rolling } from "./Rolling";
 import { useTransitionNavigate } from "./Transition";
 import "./Converter.css";
 
@@ -18,7 +19,7 @@ export interface ConverterStart {
 }
 
 /** The product: an amount, two currencies, a live price, one button. */
-export function Converter({ config, start = {}, className = "" }: { config: AppConfig; start?: ConverterStart; className?: string }) {
+export function Converter({ config, start = {}, className = "", onQuote }: { config: AppConfig; start?: ConverterStart; className?: string; onQuote?: (q: Quote | null) => void }) {
   const { t, locale } = useI18n();
   const wallet = useWallet();
   const go = useTransitionNavigate();
@@ -44,6 +45,7 @@ export function Converter({ config, start = {}, className = "" }: { config: AppC
     if (!amount || Number(amount) === 0) {
       setQuote(null);
       setError(null);
+      onQuote?.(null);
       return;
     }
     const ac = new AbortController();
@@ -53,15 +55,17 @@ export function Converter({ config, start = {}, className = "" }: { config: AppC
       const q = await api.quote(from, to, amount, start.partner ?? null, ac.signal);
       if (ac.signal.aborted) return;
       setQuote(q);
+      onQuote?.(q.quote);
       setError(null);
     } catch (e) {
       if (ac.signal.aborted) return;
       setQuote(null);
+      onQuote?.(null);
       setError(e instanceof Error ? e.message : t("error.generic"));
     } finally {
       if (!ac.signal.aborted) setLoading(false);
     }
-  }, [amount, from, to, start.partner, t]);
+  }, [amount, from, to, start.partner, t, onQuote]);
 
   useEffect(() => {
     const timer = setTimeout(() => void fetchQuote(), 320);
@@ -124,22 +128,21 @@ export function Converter({ config, start = {}, className = "" }: { config: AppC
   const rate = useMemo(() => (quote ? Number(quote.quote.display.out) / Number(quote.quote.display.in) : null), [quote]);
   const compare = quote?.compare ?? null;
   const ourOut = quote ? Number(quote.quote.display.out) : 0;
+  const shown = quote ? money(quote.quote.estOut, tc) : money(0n, tc);
 
   return (
     <div className={`cv card ${className}`}>
       <div className="cv-side">
         <span className="eyebrow">{t("cv.change")}</span>
-        <div className="cv-row">
-          <input
-            className="cv-amount display"
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(",", ".").replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))}
-            placeholder="0"
-            aria-label={t("cv.change")}
-          />
-          <Pick code={from} currencies={config.currencies} onPick={(c) => pick("from", c)} soon={t("cv.soon")} />
-        </div>
+        <input
+          className="cv-amount display"
+          inputMode="decimal"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value.replace(",", ".").replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))}
+          placeholder="0"
+          aria-label={t("cv.change")}
+        />
+        <FlagRail code={from} currencies={config.currencies} onPick={(c) => pick("from", c)} soon={t("cv.soon")} />
       </div>
 
       <button type="button" className="cv-flip" onClick={flip} aria-label="Swap">
@@ -150,10 +153,10 @@ export function Converter({ config, start = {}, className = "" }: { config: AppC
 
       <div className="cv-side cv-side--out">
         <span className="eyebrow">{other ? t("cv.get") : t("cv.get.me")}</span>
-        <div className="cv-row">
-          <output className={`cv-amount display ${loading ? "is-loading" : ""} ${!quote ? "is-empty" : ""}`}>{quote ? money(quote.quote.estOut, tc) : loading ? "…" : "0"}</output>
-          <Pick code={to} currencies={config.currencies} onPick={(c) => pick("to", c)} soon={t("cv.soon")} />
-        </div>
+        <output className={`cv-amount display ${loading ? "is-loading" : ""} ${!quote ? "is-empty" : ""}`}>
+          <Rolling value={shown} />
+        </output>
+        <FlagRail code={to} currencies={config.currencies} onPick={(c) => pick("to", c)} soon={t("cv.soon")} />
         <p className="cv-meta mono">
           {quote && rate ? (
             <>
@@ -221,53 +224,30 @@ function trimmed(decimal: string, c: Currency): string {
   return whole ? String(Math.floor(n)) : n.toFixed(2);
 }
 
-/** A currency button that opens the list. Coming-soon currencies are shown but not pickable. */
-function Pick({ code, currencies, onPick, soon }: { code: string; currencies: Currency[]; onPick: (code: string) => void; soon: string }) {
-  const [open, setOpen] = useState(false);
+/** The currencies as a rail of flags. The chosen one slides into focus; the ones to come are dimmed. */
+function FlagRail({ code, currencies, onPick, soon }: { code: string; currencies: Currency[]; onPick: (code: string) => void; soon: string }) {
   const ref = useRef<HTMLDivElement>(null);
-  const current = currencies.find((c) => c.code === code)!;
-
   useEffect(() => {
-    if (!open) return;
-    const close = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    window.addEventListener("pointerdown", close);
-    return () => window.removeEventListener("pointerdown", close);
-  }, [open]);
-
+    const on = ref.current?.querySelector<HTMLElement>(".flag.is-on");
+    on?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+  }, [code]);
   return (
-    <div ref={ref} className={`pick ${open ? "is-open" : ""}`}>
-      <button type="button" className="pick-btn" onClick={() => setOpen((o) => !o)} aria-haspopup="listbox" aria-expanded={open}>
-        <CurrencyMark code={code} />
-        <span>{current.label}</span>
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </button>
-      {open && (
-        <ul className="pick-list" role="listbox">
-          {currencies.map((c) => (
-            <li key={c.code}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={c.code === code}
-                className={`pick-item ${c.code === code ? "is-on" : ""}`}
-                disabled={!c.enabled}
-                onClick={() => {
-                  onPick(c.code);
-                  setOpen(false);
-                }}
-              >
-                <CurrencyMark code={c.code} />
-                <span>{c.label}</span>
-                <span className="pick-fiat mono">{c.enabled ? c.fiat : soon}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div ref={ref} className="flags" role="radiogroup">
+      {currencies.map((c) => (
+        <button
+          key={c.code}
+          type="button"
+          role="radio"
+          aria-checked={c.code === code}
+          className={`flag ${c.code === code ? "is-on" : ""}`}
+          disabled={!c.enabled}
+          title={c.enabled ? c.fiat : soon}
+          onClick={() => onPick(c.code)}
+        >
+          <CurrencyMark code={c.code} />
+          <span>{c.label}</span>
+        </button>
+      ))}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { createApp } from "./app.js";
+import { createAvailability } from "./availability.js";
 import { createBuy } from "./buy.js";
 import { createChain } from "./chain.js";
 import { loadConfig } from "./config.js";
@@ -22,9 +23,10 @@ export async function boot(env: NodeJS.ProcessEnv = process.env, db?: Db) {
   const venues = { textile: new Textile(cfg.textileUrl, cfg.chain.id, cfg.textileApiKey), uniswap: new Uniswap(chain.pub) };
   const rates = createRates(store, buy);
   const engine = createEngine(cfg, store, chain, venues);
+  const availability = createAvailability(venues);
   const worker = createWorker(cfg, store, chain, engine, rates);
-  const app = createApp(cfg, store, chain, venues, rates, engine, worker);
-  return { cfg, store, chain, buy, venues, rates, engine, worker, app };
+  const app = createApp(cfg, store, chain, venues, rates, engine, availability, worker);
+  return { cfg, store, chain, buy, venues, rates, engine, availability, worker, app };
 }
 
 /** An in-process Postgres on disk, for a machine with no database of its own. */

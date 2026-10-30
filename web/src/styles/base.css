@@ -48,6 +48,11 @@
   color-scheme: dark;
 }
 
+/* The first screen is dark; the page body stays paper so the nav blur reads right over both. */
+body.hero-dark .nav::before { background: color-mix(in oklab, var(--ink) 72%, transparent); }
+body.hero-dark .nav { color: var(--paper); --line: color-mix(in oklab, var(--paper) 14%, transparent); --card: var(--ink-2); --muted: color-mix(in oklab, var(--paper) 55%, var(--ink)); }
+body.hero-dark .lang-btn.is-on { background: var(--paper); color: var(--ink); }
+
 *,
 *::before,
 *::after {

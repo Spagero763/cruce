@@ -1,32 +1,28 @@
-.page-disc {
+.bands {
   display: none;
   position: fixed;
   inset: 0;
   z-index: 90;
-  background: var(--cross);
   pointer-events: all;
+  overflow: hidden;
 }
 
-.page-disc-mark {
+.band {
   position: absolute;
-  inset: 50% auto auto 50%;
-  width: 72px;
-  translate: -50% -50%;
-  overflow: visible;
+  left: -20%;
+  width: 140%;
+  height: 56%;
+  will-change: transform;
 }
 
-.page-disc-mark path {
-  fill: none;
-  stroke: var(--on-accent);
-  stroke-width: 5;
-  stroke-linecap: round;
-  stroke-dasharray: 60;
-  animation: disc-draw 1.2s var(--ease-in-out) infinite alternate;
+.band--a {
+  top: -6%;
+  background: var(--cross);
+  clip-path: polygon(0 0, 100% 0, 100% 72%, 0 100%);
 }
 
-.page-disc-mark path:last-child { animation-delay: -0.6s; }
-
-@keyframes disc-draw {
-  from { stroke-dashoffset: 60; }
-  to { stroke-dashoffset: 0; }
+.band--b {
+  bottom: -6%;
+  background: var(--ink);
+  clip-path: polygon(0 28%, 100% 0, 100% 100%, 0 100%);
 }

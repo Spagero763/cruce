@@ -215,6 +215,9 @@ export function Order() {
 
         {order.status === "done" && (
           <div className="order-done o-reveal">
+            <span className="stamp display" aria-hidden>
+              {t("order.status.done")}
+            </span>
             <p className="eyebrow">{t("order.done.title")}</p>
             <span className="display">{money(order.out ?? order.estOut, tc)}</span>
             <p className="note">

@@ -1,0 +1,33 @@
+.roll {
+  display: inline-flex;
+  align-items: baseline;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.roll-col {
+  display: inline-block;
+  position: relative;
+  height: 1em;
+  overflow: hidden;
+  vertical-align: baseline;
+}
+
+.roll-track {
+  display: grid;
+  transition: transform 0.9s var(--ease-out);
+  will-change: transform;
+}
+
+.roll-digit {
+  display: block;
+  height: 1em;
+  line-height: 1;
+}
+
+.roll-char {
+  display: inline-block;
+  line-height: 1;
+}
+
+.lite .roll-track { transition-duration: 0.3s; }

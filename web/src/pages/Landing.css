@@ -1,3 +1,8 @@
+.hero-glow {
+  background: var(--ink);
+  color: var(--paper);
+}
+
 .hero {
   min-height: 100svh;
   display: grid;
@@ -6,6 +11,27 @@
   gap: clamp(24px, 4vw, 72px);
   padding-top: 112px;
   padding-bottom: 64px;
+}
+
+.hero-cross-wrap {
+  position: relative;
+  max-width: 420px;
+  margin-top: 8px;
+}
+
+.hero-cross .x-disc { background: var(--ink-2); border-color: var(--line); }
+.hero-cross .x-hub { background: var(--paper); color: var(--ink); }
+
+.hero-count {
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  translate: -50% 0;
+  font-size: 1.6rem;
+  color: var(--cross);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s;
 }
 
 .hero-title {
@@ -25,19 +51,18 @@
   margin: 0 0 36px;
 }
 
-.hero-cross { max-width: 420px; margin-top: 8px; }
-
 .hero-cv {
-  box-shadow: 0 50px 90px -50px color-mix(in oklab, var(--cross) 45%, transparent);
+  box-shadow: 0 60px 120px -40px color-mix(in oklab, var(--cross) 55%, transparent), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .marquee {
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--cross);
+  color: var(--on-accent);
   overflow: hidden;
-  padding: 26px 0;
-  border-block: 1px solid var(--line);
+  padding: 22px 0;
 }
+
+.marquee-item i { color: var(--ink); }
 
 .marquee-track {
   display: flex;
@@ -62,7 +87,6 @@
 
 .marquee-item i {
   font-style: normal;
-  color: var(--cross);
   font-size: 0.6em;
 }
 
@@ -277,7 +301,7 @@
 
 @media (max-width: 899px) {
   .hero { grid-template-columns: 1fr; padding-top: 96px; row-gap: 28px; }
-  .hero-cross { display: none; }
+  .hero-cross-wrap { display: none; }
   .story-grid { grid-template-columns: 1fr; }
   .story-stage {
     position: sticky;

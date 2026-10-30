@@ -7,7 +7,8 @@ import { z } from "zod";
 import { authMessage, issueNonce, verifySigned } from "./auth.js";
 import type { Chain } from "./chain.js";
 import type { Config } from "./config.js";
-import { CURRENCIES, CURRENCY_CODES, ENABLED, isCurrency, type CurrencyCode } from "./currencies.js";
+import type { Availability } from "./availability.js";
+import { CURRENCIES, ENABLED, isCurrency, type CurrencyCode } from "./currencies.js";
 import type { Order, OrderEvent, Store } from "./db.js";
 import { RUNNING, type Engine } from "./engine.js";
 import { createPayments, PAY_ROUTE } from "./payments.js";
@@ -66,7 +67,7 @@ export function compare(ref: Reference, from: CurrencyCode, to: CurrencyCode, am
   };
 }
 
-export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venues, rates: Rates, engine: Engine, worker?: Worker) {
+export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venues, rates: Rates, engine: Engine, availability: Availability, worker?: Worker) {
   const app = new Hono();
   const { server, routes } = createPayments(cfg, store, chain, engine);
 
@@ -93,15 +94,15 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
     return c.json({ ok: true, now: Date.now() });
   });
 
-  app.get("/api/config", (c) => {
-    c.header("cache-control", "public, s-maxage=300, stale-while-revalidate=3600");
+  app.get("/api/config", async (c) => {
+    c.header("cache-control", "public, s-maxage=60, stale-while-revalidate=600");
     return c.json({
       chainId: cfg.chain.id,
       network: cfg.network,
       explorer: cfg.explorer,
       agent: chain.address,
       agentId: cfg.agentId?.toString() ?? null,
-      currencies: CURRENCY_CODES.map((code) => CURRENCIES[code]),
+      currencies: await availability.currencies(),
       limits: { minUsd: cfg.minOrderUsd, maxUsd: cfg.maxOrderUsd, feeBps: cfg.feeBps, partnerBps: cfg.partnerBps, quoteSeconds: cfg.quoteTtlMs / 1000, slippageBps: cfg.slippageBps },
     });
   });
@@ -112,15 +113,15 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
     return c.json({ nonce, message: authMessage("<action>", nonce) });
   });
 
-  const enabled = (v: unknown): v is CurrencyCode => isCurrency(v) && CURRENCIES[v].enabled;
+  const enabled = async (v: unknown): Promise<boolean> => isCurrency(v) && (await availability.enabled(v));
 
   // A quote is a priced route that holds for a short while. The order is made from it at pay time.
   app.get("/api/quote", async (c) => {
     await limit(`quote:${ip(c)}`, 120, 60_000);
-    const from = c.req.query("from");
-    const to = c.req.query("to");
+    const from = c.req.query("from") as CurrencyCode;
+    const to = c.req.query("to") as CurrencyCode;
     const amount = c.req.query("amount") ?? "";
-    if (!enabled(from) || !enabled(to)) throw new Error("pick two of the currencies we change today");
+    if (!(await enabled(from)) || !(await enabled(to))) throw new Error("pick two of the currencies we change today");
     if (!/^\d+(\.\d{1,18})?$/.test(amount)) throw new Error("enter an amount");
     const amountIn = parseUnits(amount, CURRENCIES[from].decimals);
     if (amountIn === 0n) throw new Error("enter an amount");
