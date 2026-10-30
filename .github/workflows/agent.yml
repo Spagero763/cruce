@@ -1,0 +1,21 @@
+name: agent
+
+# Wakes the agent to finish any order whose instance died mid-way, send parked payments back,
+# and refresh the reference rates.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Run one round
+        env:
+          AGENT_URL: ${{ secrets.AGENT_URL }}
+          WORKER_SECRET: ${{ secrets.WORKER_SECRET }}
+        run: |
+          if [ -z "$AGENT_URL" ]; then echo "AGENT_URL is not set"; exit 0; fi
+          curl -fsS --max-time 320 -X POST "$AGENT_URL/api/worker/tick" -H "authorization: Bearer $WORKER_SECRET"

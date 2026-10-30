@@ -1,0 +1,70 @@
+.x {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2;
+  --disc: 22%;
+}
+.x--sm { max-width: 220px; --disc: 24%; }
+.x--md { max-width: 420px; }
+.x--lg { max-width: 640px; }
+
+.x-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.x-track {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 9;
+  stroke-linecap: round;
+}
+
+.x-hub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: clamp(0.9rem, 2.4vw, 1.4rem);
+  box-shadow: 0 0 0 10px color-mix(in oklab, var(--cross) 14%, transparent);
+}
+
+.x-disc {
+  position: absolute;
+  top: 50%;
+  width: var(--disc);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 50px -24px rgba(14, 15, 12, 0.45);
+  display: grid;
+  place-items: center;
+  transition: left 1.2s var(--ease-out), opacity 0.6s var(--ease-out);
+}
+
+.x-disc .currency-mark {
+  width: 62%;
+  height: 62%;
+}
+
+.x-disc--a { left: 15%; }
+.x-disc--b { left: 85%; }
+
+/* The order page walks the discs through the hub: first one in, then the other out. */
+.x[data-stage="1"] .x-disc--a { left: 50%; opacity: 0; }
+.x[data-stage="2"] .x-disc--a { left: 50%; opacity: 0; }
+.x[data-stage="2"] .x-disc--b { left: 85%; }
+.x[data-stage="1"] .x-disc--b { left: 50%; opacity: 0; }

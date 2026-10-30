@@ -1,0 +1,36 @@
+{
+  "name": "@cruce/sdk",
+  "version": "0.1.0",
+  "description": "Quote and settle cross-currency conversions on Celo through Cruce: pesos, reais, naira and dollars in one call.",
+  "license": "MIT",
+  "author": "spagero763",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "viem": "^2"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "viem": "^2.57.0"
+  },
+  "dependencies": {
+    "@x402/core": "2.28.0",
+    "@x402/evm": "2.28.0",
+    "@x402/fetch": "2.28.0"
+  }
+}

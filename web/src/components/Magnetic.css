@@ -1,0 +1,54 @@
+.mag {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  min-height: 56px;
+  padding: 0 1.6em;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-weight: 500;
+  font-size: 1rem;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  transition: opacity 0.2s var(--ease-out), transform 0.2s var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+.mag:active { transform: scale(0.97); }
+.mag:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.mag-fill {
+  position: absolute;
+  z-index: -1;
+  width: 260%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  translate: -50% -50%;
+  scale: 0;
+  pointer-events: none;
+}
+
+.mag-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  transition: color 0.35s var(--ease-out);
+}
+
+.mag--primary { background: var(--cross); color: var(--on-accent); }
+.mag--primary .mag-fill { background: var(--ink); }
+
+.mag--ink { background: var(--fg); color: var(--bg); }
+.mag--ink .mag-fill { background: var(--cross); }
+.mag--ink:hover .mag-label { color: var(--on-accent); }
+
+.mag--ghost { background: transparent; color: var(--fg); border-color: var(--line); }
+.mag--ghost .mag-fill { background: var(--fg); }
+.mag--ghost:hover .mag-label { color: var(--bg); }
+
+@media (hover: none) {
+  .mag--primary:active { background: var(--cross-deep); }
+}

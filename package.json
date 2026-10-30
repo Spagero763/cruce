@@ -1,0 +1,26 @@
+{
+  "name": "cruce",
+  "private": true,
+  "type": "module",
+  "description": "Change pesos for reais, naira for pesos, dollars for any of them. One payment, best price, settled by an agent on Celo.",
+  "license": "MIT",
+  "author": "spagero763",
+  "workspaces": [
+    "agent",
+    "sdk",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c yellow,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm run preview -w @cruce/agent",
+    "dev:web": "npm run dev -w @cruce/web",
+    "build": "npm run build -w @cruce/sdk && npm run build -w @cruce/web",
+    "test": "npm test -w @cruce/agent",
+    "typecheck": "tsc -p tsconfig.json && npm run typecheck -w @cruce/agent && npm run typecheck -w @cruce/sdk && npm run typecheck -w @cruce/web"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "concurrently": "^9.2.5",
+    "typescript": "^5.9.3"
+  }
+}
