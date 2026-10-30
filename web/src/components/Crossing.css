@@ -30,7 +30,7 @@
   top: 50%;
   width: 14%;
   aspect-ratio: 1;
-  translate: -50% -50%;
+  margin: -7% 0 0 -7%;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -45,7 +45,7 @@
   top: 50%;
   width: var(--disc);
   aspect-ratio: 1;
-  translate: -50% -50%;
+  margin: calc(var(--disc) / -2) 0 0 calc(var(--disc) / -2);
   border-radius: 50%;
   background: var(--card);
   border: 1px solid var(--line);

@@ -54,11 +54,17 @@
 }
 .cv-error { color: var(--problem); }
 
+.cv-mid {
+  position: relative;
+  height: 0;
+  z-index: 2;
+}
+
 .cv-flip {
   position: absolute;
   left: 50%;
+  top: 0;
   translate: -50% -50%;
-  z-index: 2;
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -70,7 +76,6 @@
   place-items: center;
   box-shadow: 0 10px 24px -14px rgba(14, 15, 12, 0.5);
   transition: transform 0.6s var(--ease-out), background 0.3s, color 0.3s;
-  top: calc(clamp(16px, 2.2vw, 24px) + 148px);
 }
 .cv-flip svg { width: 18px; }
 .cv-flip:hover { rotate: 180deg; background: var(--fg); color: var(--bg); }
@@ -166,5 +171,4 @@
 
 @media (max-width: 560px) {
   .cv-amount { font-size: 2rem; }
-  .cv-flip { top: calc(16px + 140px); }
 }

@@ -1,12 +1,12 @@
-import { memo, useEffect, useRef } from "react";
+import { memo, useRef } from "react";
 import { gsap, lite, prefersReducedMotion, useGSAP } from "../lib/motion";
 import { CurrencyMark } from "./CurrencyMark";
 import "./Crossing.css";
 
 /**
- * The brand picture: two currencies cross through the dollar. `from` rides the upper arc to
- * the right, `to` rides the lower arc to the left, and the hub pulses when they pass. Each
- * change of pair plays it once. On lite devices the discs sit at rest.
+ * The brand picture: two currencies cross through the dollar. On a change of pair the discs
+ * trade places, one passing over the hub and one under, and the hub pulses as they meet.
+ * The order page walks the same discs through the hub step by step with `stage`.
  */
 export const Crossing = memo(function Crossing({
   from,
@@ -18,7 +18,7 @@ export const Crossing = memo(function Crossing({
   from: string;
   to: string;
   size?: "sm" | "md" | "lg";
-  /** 0 at rest, 1 the first disc has gone in, 2 the second is out. Drives the order page. */
+  /** 0 at rest, 1 the first disc has gone in, 2 the second is out. */
   stage?: 0 | 1 | 2;
   className?: string;
 }) {
@@ -27,36 +27,31 @@ export const Crossing = memo(function Crossing({
 
   useGSAP(
     () => {
+      if (first.current || prefersReducedMotion() || lite()) {
+        first.current = false;
+        return;
+      }
       const a = root.current!.querySelector<HTMLElement>(".x-disc--a")!;
       const b = root.current!.querySelector<HTMLElement>(".x-disc--b")!;
       const hub = root.current!.querySelector<HTMLElement>(".x-hub")!;
-      const still = prefersReducedMotion() || lite();
-      if (first.current || still) {
-        first.current = false;
-        gsap.set(a, { xPercent: 0, yPercent: 0 });
-        gsap.set(b, { xPercent: 0, yPercent: 0 });
-        return;
-      }
-      const tl = gsap.timeline({ defaults: { duration: 1.4, ease: "hold" } });
-      tl.fromTo(a, { xPercent: 0 }, { motionPath: { path: ".x-path-a", align: ".x-path-a", alignOrigin: [0.5, 0.5] } }, 0)
-        .fromTo(b, { xPercent: 0 }, { motionPath: { path: ".x-path-b", align: ".x-path-b", alignOrigin: [0.5, 0.5] } }, 0)
-        .fromTo(hub, { scale: 1 }, { scale: 1.35, duration: 0.35, ease: "press", yoyo: true, repeat: 1 }, 0.5)
-        .set([a, b], { clearProps: "transform" });
+      const lift = root.current!.clientHeight * 0.28;
+      const tl = gsap.timeline({ defaults: { duration: 0.7, ease: "sine.inOut" } });
+      tl.fromTo(a, { left: "85%" }, { left: "15%", duration: 1.4, ease: "power2.inOut" }, 0)
+        .fromTo(b, { left: "15%" }, { left: "85%", duration: 1.4, ease: "power2.inOut" }, 0)
+        .fromTo(a, { y: 0 }, { y: -lift, ease: "sine.out" }, 0)
+        .to(a, { y: 0, ease: "sine.in" }, 0.7)
+        .fromTo(b, { y: 0 }, { y: lift, ease: "sine.out" }, 0)
+        .to(b, { y: 0, ease: "sine.in" }, 0.7)
+        .fromTo(hub, { scale: 1 }, { scale: 1.35, duration: 0.3, ease: "press", yoyo: true, repeat: 1 }, 0.55);
     },
     { scope: root, dependencies: [from, to] },
   );
-
-  useEffect(() => {
-    root.current?.style.setProperty("--stage", String(stage));
-  }, [stage]);
 
   return (
     <div ref={root} className={`x x--${size} ${className}`} data-stage={stage} aria-hidden>
       <svg className="x-svg" viewBox="0 0 400 200">
         <path className="x-track" d="M60 100c70 0 100-60 140-60s70 60 140 60" />
         <path className="x-track" d="M60 100c70 0 100 60 140 60s70-60 140-60" />
-        <path className="x-path-a" d="M60 100c70 0 100-60 140-60s70 60 140 60" fill="none" stroke="none" />
-        <path className="x-path-b" d="M340 100c-70 0-100 60-140 60s-70-60-140-60" fill="none" stroke="none" />
       </svg>
       <div className="x-hub mono">$</div>
       <div className="x-disc x-disc--a">

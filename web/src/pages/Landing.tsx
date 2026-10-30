@@ -91,12 +91,17 @@ export function Landing() {
       const count = root.current!.querySelector<HTMLElement>(".hero-count");
       if (a && b && hub && count && !light) {
         const n = { p: 0 };
+        const lift = (a.parentElement?.clientHeight ?? 200) * 0.28;
         gsap
           .timeline({ scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: 0.6 } })
-          .to(a, { motionPath: { path: ".hero-cross .x-path-a", align: ".hero-cross .x-path-a", alignOrigin: [0.5, 0.5] }, ease: "none" }, 0)
-          .to(b, { motionPath: { path: ".hero-cross .x-path-b", align: ".hero-cross .x-path-b", alignOrigin: [0.5, 0.5] }, ease: "none" }, 0)
-          .fromTo(hub, { scale: 1 }, { scale: 1.4, ease: "none" }, 0)
-          .to(hub, { scale: 1, ease: "none" }, 0.5)
+          .fromTo(a, { left: "15%" }, { left: "85%", ease: "none" }, 0)
+          .fromTo(b, { left: "85%" }, { left: "15%", ease: "none" }, 0)
+          .fromTo(a, { y: 0 }, { y: -lift, duration: 0.5, ease: "sine.out" }, 0)
+          .to(a, { y: 0, duration: 0.5, ease: "sine.in" }, 0.5)
+          .fromTo(b, { y: 0 }, { y: lift, duration: 0.5, ease: "sine.out" }, 0)
+          .to(b, { y: 0, duration: 0.5, ease: "sine.in" }, 0.5)
+          .fromTo(hub, { scale: 1 }, { scale: 1.4, duration: 0.5, ease: "none" }, 0)
+          .to(hub, { scale: 1, duration: 0.5, ease: "none" }, 0.5)
           .to(
             n,
             {

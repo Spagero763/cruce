@@ -145,11 +145,13 @@ export function Converter({ config, start = {}, className = "", onQuote }: { con
         <FlagRail code={from} currencies={config.currencies} onPick={(c) => pick("from", c)} soon={t("cv.soon")} />
       </div>
 
-      <button type="button" className="cv-flip" onClick={flip} aria-label="Swap">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M7 4v16m0 0-3-3m3 3 3-3M17 20V4m0 0-3 3m3-3 3 3" />
-        </svg>
-      </button>
+      <div className="cv-mid">
+        <button type="button" className="cv-flip" onClick={flip} aria-label="Swap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7 4v16m0 0-3-3m3 3 3-3M17 20V4m0 0-3 3m3-3 3 3" />
+          </svg>
+        </button>
+      </div>
 
       <div className="cv-side cv-side--out">
         <span className="eyebrow">{other ? t("cv.get") : t("cv.get.me")}</span>
