@@ -51,6 +51,9 @@
   margin: 0 0 36px;
 }
 
+/* Space is held for the converter before it loads, so the copy never jumps when it lands. */
+.hero-visual { min-height: 540px; }
+
 .hero-cv {
   box-shadow: 0 60px 120px -40px color-mix(in oklab, var(--cross) 55%, transparent), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }

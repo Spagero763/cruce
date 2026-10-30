@@ -227,9 +227,15 @@ function trimmed(decimal: string, c: Currency): string {
 /** The currencies as a rail of flags. The chosen one slides into focus; the ones to come are dimmed. */
 function FlagRail({ code, currencies, onPick, soon }: { code: string; currencies: Currency[]; onPick: (code: string) => void; soon: string }) {
   const ref = useRef<HTMLDivElement>(null);
+  const first = useRef(true);
+  // Only the rail scrolls, never the page, and not on first paint.
   useEffect(() => {
-    const on = ref.current?.querySelector<HTMLElement>(".flag.is-on");
-    on?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+    const rail = ref.current;
+    const on = rail?.querySelector<HTMLElement>(".flag.is-on");
+    if (!rail || !on) return;
+    const left = on.offsetLeft - rail.clientWidth / 2 + on.offsetWidth / 2;
+    rail.scrollTo({ left, behavior: first.current ? "auto" : "smooth" });
+    first.current = false;
   }, [code]);
   return (
     <div ref={ref} className="flags" role="radiogroup">

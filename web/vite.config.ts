@@ -16,5 +16,8 @@ export default defineConfig({
   server: {
     proxy: { "/api": agent, "/x402": agent, "/.well-known": agent },
   },
+  preview: {
+    proxy: { "/api": agent, "/x402": agent, "/.well-known": agent },
+  },
   build: { target: "es2022", sourcemap: true },
 });
