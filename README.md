@@ -100,7 +100,7 @@ const { body } = await cruce.payEndpoint({ url: "https://…", from: "cNGN", wal
 ## Plug it in
 
 ```ts
-import { Cruce } from "@cruce/sdk";
+import { Cruce } from "cruce-sdk";
 
 const cruce = new Cruce({ partner: "your-code" });
 const q = await cruce.quote({ from: "wARS", to: "wBRL", amount: "50000" });

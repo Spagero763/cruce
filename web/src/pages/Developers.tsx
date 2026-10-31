@@ -7,7 +7,7 @@ import { gsap, prefersReducedMotion, useGSAP } from "../lib/motion";
 import { useWallet } from "../lib/wallet";
 import "./app.css";
 
-const SAMPLE = `import { Cruce } from "@cruce/sdk";
+const SAMPLE = `import { Cruce } from "cruce-sdk";
 
 const cruce = new Cruce({ partner: "your-code" });
 
@@ -94,7 +94,7 @@ export function Developers() {
           <div className="card d-reveal">
             <p className="eyebrow">{t("devp.install")}</p>
             <pre className="code" style={{ marginTop: 12 }}>
-              npm install @cruce/sdk viem
+              npm install cruce-sdk viem
             </pre>
             <p className="eyebrow" style={{ marginTop: 22 }}>
               {t("devp.quote")}

@@ -1,4 +1,4 @@
-# @cruce/sdk
+# cruce-sdk
 
 Quote and settle cross-currency conversions on Celo through [Cruce](https://cruce-phi.vercel.app):
 wARS, wBRL, wCOP, cNGN and the dollars into each other in one x402 payment, at the best price across
@@ -6,13 +6,13 @@ Textile, Uniswap and Mento, with a guaranteed minimum or a refund. Or pay any x4
 currency you hold.
 
 ```
-npm install @cruce/sdk viem
+npm install cruce-sdk viem
 ```
 
 ## Change money
 
 ```ts
-import { Cruce } from "@cruce/sdk";
+import { Cruce } from "cruce-sdk";
 
 const cruce = new Cruce({ partner: "your-code" });
 
