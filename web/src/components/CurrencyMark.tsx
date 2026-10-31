@@ -104,6 +104,8 @@ export function CurrencyMark({ code }: { code: string }) {
       );
     case "USDC":
       return coin("$", "#3a6fd8");
+    case "USDm":
+      return coin("m", "#2bb673");
     default:
       return coin("₮", "#2a9d78");
   }

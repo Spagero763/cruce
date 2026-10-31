@@ -44,7 +44,7 @@ export async function priceLeg(v: Venues, from: CurrencyCode, to: CurrencyCode, 
   const candidates: Promise<LegPrice | null>[] = [
     v.textile.indicative(CURRENCIES[from].address, CURRENCIES[to].address, amountIn).then((out) => (out && out > 0n ? { venue: "textile", out } : null)),
     ...poolsFor(from, to).map((pool) =>
-      v.uniswap.quote(pool, from, to, amountIn).then((out) => (out && out > 0n ? { venue: pool.kind === "v3" ? ("uniswap_v3" as const) : ("uniswap_v4" as const), pool, out } : null)),
+      v.uniswap.quote(pool, from, to, amountIn).then((out) => (out && out > 0n ? { venue: pool.kind === "v3" ? ("uniswap_v3" as const) : pool.kind === "mento" ? ("mento" as const) : ("uniswap_v4" as const), pool, out } : null)),
     ),
   ];
   const priced = (await Promise.all(candidates)).filter((p): p is LegPrice => p !== null);

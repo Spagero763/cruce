@@ -172,3 +172,34 @@
 @media (max-width: 560px) {
   .cv-amount { font-size: 2rem; }
 }
+
+.cv-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cv-balance {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.cv-parts {
+  display: flex;
+  gap: 6px;
+}
+
+.cv-part {
+  flex: 1 1 0;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.3s var(--ease-out), color 0.3s var(--ease-out), border-color 0.3s, transform 0.2s;
+}
+.cv-part:hover { border-color: var(--cross); color: var(--cross); }
+.cv-part:active { transform: scale(0.95); background: var(--cross); color: var(--on-accent); }

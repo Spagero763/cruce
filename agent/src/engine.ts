@@ -308,6 +308,6 @@ export function createEngine(cfg: Config, store: Store, chain: Chain, venues: Ve
 /** The database stores pools as JSON with its own key order, so pools are compared field by field. */
 export function samePool(a: PoolRef, b: PoolRef | undefined): boolean {
   if (!b || a.kind !== b.kind || a.fee !== b.fee) return false;
-  if (a.kind === "v3" || b.kind === "v3") return true;
+  if (a.kind !== "v4" || b.kind !== "v4") return true;
   return a.currency0.toLowerCase() === b.currency0.toLowerCase() && a.currency1.toLowerCase() === b.currency1.toLowerCase() && a.tickSpacing === b.tickSpacing && a.hooks.toLowerCase() === b.hooks.toLowerCase();
 }

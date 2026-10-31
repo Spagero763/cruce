@@ -22,7 +22,7 @@ once. No gas, no account, no counter.
 
 | | |
 |---|---|
-| **People** | Change wARS, wBRL, wCOP, cNGN, USA₮, USD₮ or USDC into each other, or into Indonesian rupiah (IDRX, receive only: Celo's x402 facilitator doesn't settle it yet) from MiniPay, MetaMask, Rainbow, or an email sign-in that makes a wallet for you. The quote shows an estimate and a minimum. Under the minimum, you are refunded, not short-changed. |
+| **People** | Change wARS, wBRL, wCOP, cNGN, USA₮, USD₮ or USDC into each other, or into Indonesian rupiah (IDRX) and Mento's dollar (USDm). Those two are receive only, since Celo's x402 facilitator doesn't settle them yet from MiniPay, MetaMask, Rainbow, or an email sign-in that makes a wallet for you. The quote shows an estimate and a minimum. Under the minimum, you are refunded, not short-changed. |
 | **Builders** | One call quotes, one payment settles. Any conversion that carries your partner code pays you a third of the fee, on-chain, with the order itself. An npm package and a link that pays you. |
 | **The agent** | Holds nothing between orders and no contract holds a balance. Every leg is a public transaction on Celo, tagged, from one wallet. |
 | **Languages** | English, Español, Português. |
@@ -42,8 +42,8 @@ run       leg 1   wARS -> USD₮   on the venue that quoted best, re-priced at f
 ```
 
 - **Venues.** Textile FX (request-for-quote, makers quote local currency against dollars, settled
-  through its reactor) and Uniswap (v3 pools for wARS, cNGN, USDC and USA₮ against USD₮; v4 pools for
-  wBRL and wARS against USDC). Each hop is quoted on everything that trades the pair and the best
+  through its reactor), Uniswap (v3 pools for wARS, cNGN, USDC and USA₮ against USD₮; v4 pools for
+  wBRL and wARS against USDC) and Mento's v3 pools for USDm, the dollar MiniPay holds. Each hop is quoted on everything that trades the pair and the best
   output wins. At fill time the leg is priced again; if the quoted venue has gone quiet the others
   are tried, and if nothing reaches the minimum the order is refunded.
 - **Payment.** x402 over Celo's facilitator: EIP-3009 for the dollar tokens, Permit2 with a sponsored
@@ -67,6 +67,7 @@ Agent wallet [`0x242C4917FdaFB48A845BFD4356D81AE45EE6E77e`](https://celoscan.io/
 |---|---|
 | Textile fill, USD₮ to wARS | [`0x40cfae…e670e`](https://celoscan.io/tx/0x40cfae779f7b5f60e06b1ad1a999884f01186f6a6cee6549a771e8637f8e670e) |
 | Uniswap v3 fill, wARS to USD₮ | [`0xa859f0…8defd`](https://celoscan.io/tx/0xa859f0eed8c28313bca6ceda6e12896c88420719608a183164c369947018defd) |
+| Mento fill, USDC to USDm | [`0x6aa2bf…855d5`](https://celoscan.io/tx/0x6aa2bf39dd822a51c7c5b6f76b239c8f4e1011938125357f03095e2f5db855d5) |
 | Uniswap v4 fill, USDC to wBRL | [`0xfc4eee…c0970e`](https://celoscan.io/tx/0xfc4eee83a53190b001d9e7c8eb3306dd080f551951ec470efee0715d9ec0970e) |
 | Order: 2 USD₮ paid over x402, filled on Textile, paid out as wBRL, 18.5 s | pay [`0xd7a2ce…5460f`](https://celoscan.io/tx/0xd7a2ce0002ddf855e2741c35dad4ef829a2b93a794233b3f9d04576dd825460f) · fill [`0xab04dd…2746fc`](https://celoscan.io/tx/0xab04ddef69fecb8afc6a59768c0f08790703f2d31d5f469edcbb8f0d902746fc) · payout [`0x0289f4…c18c1`](https://celoscan.io/tx/0x0289f48ffa89764505b82d251ac9066ab0c07ea0653d47d28722232f101c18c1) |
 | An agent holding only pesos buys a buy inference call priced in USD₮: 49.97 wARS paid over x402, swapped on Uniswap v3, buy paid, change returned, answer handed back, 37.4 s | pay [`0x795a65…cd7ad`](https://celoscan.io/tx/0x795a65faaa134e1a3a35695271e6329ca28c85e8649019614519ebfacf4cd7ad) · swap [`0xa5f1e1…6618b`](https://celoscan.io/tx/0xa5f1e160dc4d0d45c4535736168f686de0d21cde2fc08f5e9f9e10ca87c6618b) · buy paid [`0xba9b13…dad47`](https://celoscan.io/tx/0xba9b13738cac8990f91b93cc4fbd633896fa6359dda9aaaee0e6a6674d7dad47) · change [`0x812a44…a8303`](https://celoscan.io/tx/0x812a44f976307ea95d962ec53ab58741bec7ea3dcabf069fe3950084c61a8303) |

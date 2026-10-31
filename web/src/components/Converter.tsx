@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { erc20Abi, formatUnits } from "viem";
 import { api, ApiError, type AppConfig, type Compare, type Currency, type Quote } from "../lib/api";
 import { money, percent, rateLine } from "../lib/format";
 import { useI18n } from "../lib/i18n";
@@ -35,6 +36,25 @@ export function Converter({ config, start = {}, className = "", onQuote }: { con
   const [busy, setBusy] = useState(false);
   const [left, setLeft] = useState(0);
   const abort = useRef<AbortController | null>(null);
+  const [balance, setBalance] = useState<bigint | null>(null);
+
+  // What the connected wallet holds of the currency being changed, for the 25/50/75/Max buttons.
+  useEffect(() => {
+    if (!wallet.address) {
+      setBalance(null);
+      return;
+    }
+    let live = true;
+    const token = config.currencies.find((c) => c.code === from)!.address;
+    void wallet
+      .clients()
+      .then(({ pub, address }) => pub.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [address] }))
+      .then((b) => live && setBalance(b))
+      .catch(() => live && setBalance(null));
+    return () => {
+      live = false;
+    };
+  }, [wallet, wallet.address, from, config.currencies]);
 
   const cur = (code: string) => config.currencies.find((c) => c.code === code)!;
   const f = cur(from);
@@ -134,7 +154,14 @@ export function Converter({ config, start = {}, className = "", onQuote }: { con
   return (
     <div className={`cv card ${className}`}>
       <div className="cv-side">
-        <span className="eyebrow">{t("cv.change")}</span>
+        <div className="cv-head">
+          <span className="eyebrow">{t("cv.change")}</span>
+          {balance !== null && (
+            <span className="cv-balance mono">
+              {t("cv.balance", { amount: money(balance, f) })}
+            </span>
+          )}
+        </div>
         <input
           className="cv-amount display"
           inputMode="decimal"
@@ -143,6 +170,15 @@ export function Converter({ config, start = {}, className = "", onQuote }: { con
           placeholder="0"
           aria-label={t("cv.change")}
         />
+        {balance !== null && balance > 0n && (
+          <div className="cv-parts" role="group" aria-label={t("cv.balance", { amount: "" })}>
+            {[25, 50, 75, 100].map((p) => (
+              <button key={p} type="button" className="cv-part mono" onClick={() => setAmount(share(balance, p, f))}>
+                {p === 100 ? t("cv.max") : `${p}%`}
+              </button>
+            ))}
+          </div>
+        )}
         <FlagRail code={from} currencies={config.currencies.filter((c) => c.payIn !== false)} onPick={(c) => pick("from", c)} soon={t("cv.soon")} />
       </div>
 
@@ -219,6 +255,14 @@ function Row({ label, out, ours, c, locale }: { label: string; out: number; ours
       <span className={`cv-delta mono ${delta >= 0 ? "is-up" : "is-down"}`}>{percent(delta, locale)}</span>
     </li>
   );
+}
+
+/** A share of the balance as the input's decimal string, rounded down so it never exceeds what is held. */
+function share(balance: bigint, percent: number, c: Currency): string {
+  const part = (balance * BigInt(percent)) / 100n;
+  const [whole, frac = ""] = formatUnits(part, c.decimals).split(".");
+  const keep = ["ARS", "COP", "NGN", "CLP", "IDR"].includes(c.fiat) ? 0 : Math.min(6, c.decimals);
+  return keep && frac ? `${whole}.${frac.slice(0, keep).replace(/0+$/, "")}`.replace(/\.$/, "") : whole;
 }
 
 function trimmed(decimal: string, c: Currency): string {

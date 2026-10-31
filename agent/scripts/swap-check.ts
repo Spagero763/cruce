@@ -14,8 +14,8 @@ import { Textile } from "../src/textile.js";
 import { poolsFor, Uniswap, V4_ROUTER } from "../src/uniswap.js";
 
 const [venue, fromArg, toArg, amountArg] = process.argv.slice(2);
-if (!["textile", "v3", "v4"].includes(venue) || !isCurrency(fromArg) || !isCurrency(toArg) || !amountArg) {
-  console.error("usage: swap-check <textile|v3|v4> <from> <to> <amount>");
+if (!["textile", "v3", "v4", "mento"].includes(venue) || !isCurrency(fromArg) || !isCurrency(toArg) || !amountArg) {
+  console.error("usage: swap-check <textile|v3|v4|mento> <from> <to> <amount>");
   process.exit(1);
 }
 const from = fromArg as CurrencyCode;

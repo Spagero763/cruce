@@ -64,6 +64,11 @@ export const CURRENCIES = {
     address: "0x18Bc5bcC660cf2B9cE3cd51a404aFe1a0cBD3C22", decimals: 2, method: "eip3009",
     domain: { name: "IDRX", version: "1" }, kind: "local", enabled: true, payIn: false,
   },
+  USDm: {
+    code: "USDm", label: "USDm", fiat: "USD", locale: "en-US", country: "US",
+    address: "0x765DE816845861e75A25fCA122bb6898B8B1282a", decimals: 18, method: "eip3009",
+    domain: { name: "Mento Dollar", version: "1" }, kind: "dollar", enabled: true, payIn: false,
+  },
   USAT: {
     code: "USAT", label: "USA₮", fiat: "USD", locale: "en-US", country: "US",
     address: "0xD2ab3C9A02DBBAB236BfEC45D1d755DF4267F771", decimals: 6, method: "eip3009",

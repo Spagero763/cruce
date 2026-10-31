@@ -1,11 +1,12 @@
 import type { Address } from "viem";
 import type { CurrencyCode } from "./currencies.js";
 
-export type Venue = "textile" | "uniswap_v3" | "uniswap_v4";
+export type Venue = "textile" | "uniswap_v3" | "uniswap_v4" | "mento";
 
 /** Where a Uniswap leg trades. v3 pools are found by fee tier; v4 pools carry their whole key. */
 export type PoolRef =
   | { kind: "v3"; fee: number }
+  | { kind: "mento"; fee: number }
   | { kind: "v4"; currency0: Address; currency1: Address; fee: number; tickSpacing: number; hooks: Address };
 
 export interface Leg {

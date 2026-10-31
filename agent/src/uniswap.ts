@@ -15,6 +15,8 @@ export const V3_ROUTER: Address = "0x5615CDAb10dc425a742d643d949a7F474C01abc4";
 export const V4_QUOTER: Address = "0x28566da1093609182dff2cb2a91cfd72e61d66cd";
 export const V4_ROUTER: Address = "0xcb695bc5d3aa22cad1e6df07801b061a05a0233a";
 export const PERMIT2: Address = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
+export const MENTO_ROUTER: Address = "0x4861840C2EfB2b98312B0aE34d86fD73E8f9B6f6";
+const MENTO_FACTORY: Address = "0xa849b475FE5a4B5C9C3280152c7a1945b907613b";
 const NO_HOOKS: Address = "0x0000000000000000000000000000000000000000";
 
 interface PoolEntry {
@@ -36,6 +38,8 @@ export const POOLS: PoolEntry[] = [
   { a: "USAT", b: "USDT", pool: { kind: "v3", fee: 100 } },
   v4("USDC", "wBRL", 3000, 30),
   v4("wARS", "USDC", 3000, 30),
+  { a: "USDm", b: "USDT", pool: { kind: "mento", fee: 0 } },
+  { a: "USDm", b: "USDC", pool: { kind: "mento", fee: 0 } },
 ];
 
 export const poolsFor = (from: CurrencyCode, to: CurrencyCode): PoolRef[] =>
@@ -51,6 +55,10 @@ const V4_QUOTER_ABI = parseAbi([
   "function quoteExactInputSingle(((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) poolKey,bool zeroForOne,uint128 exactAmount,bytes hookData) params) returns (uint256 amountOut,uint256 gasEstimate)",
 ]);
 const V4_ROUTER_ABI = parseAbi(["function execute(bytes commands, bytes[] inputs, uint256 deadline) payable"]);
+const MENTO_ABI = parseAbi([
+  "function getAmountsOut(uint256 amountIn, (address from, address to, address factory)[] routes) view returns (uint256[])",
+  "function swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, (address from, address to, address factory)[] routes, address to, uint256 deadline) returns (uint256[])",
+]);
 
 // Universal Router command and v4 router actions, by their byte values.
 const V4_SWAP = 0x10;
@@ -74,6 +82,15 @@ export class Uniswap {
     const tokenIn = CURRENCIES[from].address;
     const tokenOut = CURRENCIES[to].address;
     try {
+      if (pool.kind === "mento") {
+        const { result } = await this.pub.simulateContract({
+          address: MENTO_ROUTER,
+          abi: MENTO_ABI,
+          functionName: "getAmountsOut",
+          args: [amountIn, [{ from: tokenIn, to: tokenOut, factory: MENTO_FACTORY }]],
+        });
+        return (result as bigint[]).at(-1) ?? null;
+      }
       if (pool.kind === "v3") {
         const { result } = await this.pub.simulateContract({
           address: V3_QUOTER,
@@ -98,6 +115,14 @@ export class Uniswap {
   build(pool: PoolRef, from: CurrencyCode, to: CurrencyCode, amountIn: bigint, minOut: bigint, recipient: Address, deadline: bigint): BuiltSwap {
     const tokenIn = CURRENCIES[from].address;
     const tokenOut = CURRENCIES[to].address;
+    if (pool.kind === "mento") {
+      const data = encodeFunctionData({
+        abi: MENTO_ABI,
+        functionName: "swapExactTokensForTokens",
+        args: [amountIn, minOut, [{ from: tokenIn, to: tokenOut, factory: MENTO_FACTORY }], recipient, deadline],
+      });
+      return { to: MENTO_ROUTER, data, spender: MENTO_ROUTER, approval: "erc20" };
+    }
     if (pool.kind === "v3") {
       const data = encodeFunctionData({
         abi: V3_ROUTER_ABI,

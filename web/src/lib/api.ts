@@ -28,7 +28,7 @@ export interface AppConfig {
 export type OrderStatus = "awaiting_payment" | "paid" | "swapping" | "paying_out" | "done" | "refunding" | "refunded" | "attention";
 
 export interface Leg {
-  venue: "textile" | "uniswap_v3" | "uniswap_v4";
+  venue: "textile" | "uniswap_v3" | "uniswap_v4" | "mento";
   from: string;
   to: string;
   tx: string | null;
