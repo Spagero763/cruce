@@ -95,10 +95,12 @@ async function pricePath(cfg: Config, v: Venues, path: CurrencyCode[], amountIn:
   const estOut = amount;
   const minOut = (estOut * BigInt(10_000 - cfg.slippageBps)) / 10_000n;
   // A path with no dollar hop is valued by what its input would fetch in dollars.
-  const usd = isDollar(feeToken) ? usdAt : ((await priceLeg(v, path[0], "USDT", amountIn))?.out ?? null);
+  const usd = isDollar(feeToken)
+    ? formatUnits(usdAt, CURRENCIES[feeToken].decimals)
+    : await priceLeg(v, path[0], "USDT", amountIn).then((p) => (p ? formatUnits(p.out, CURRENCIES.USDT.decimals) : null));
   if (usd === null) return null;
   const route: Route = { legs, feeLeg, feeToken, ...(flat > 0n ? { flatFee: flat.toString() } : {}) };
-  return { route, amountIn, estOut, minOut, fee, usd: formatUnits(usd, 6) };
+  return { route, amountIn, estOut, minOut, fee, usd };
 }
 
 /**

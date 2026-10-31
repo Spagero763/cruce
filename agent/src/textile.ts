@@ -75,9 +75,13 @@ export class Textile {
 
   /** The whole price ladder for the chain, refreshed every couple of seconds. */
   async ladders(): Promise<Map<string, Ladder>> {
-    if (this.cache && Date.now() - this.cache.at < 2_000) return this.cache.map;
-    const res = await this.fetchFn(`${this.base}/rfq/levels?chainId=${this.chainId}`, { signal: AbortSignal.timeout(8_000) });
-    if (!res.ok) throw new Error(`textile levels: HTTP ${res.status}`);
+    if (this.cache && Date.now() - this.cache.at < 3_000) return this.cache.map;
+    const res = await this.fetchFn(`${this.base}/rfq/levels?chainId=${this.chainId}`, { signal: AbortSignal.timeout(8_000) }).catch(() => null);
+    if (!res?.ok) {
+      // Rate-limited or down: a ladder under a minute old is still a fair indication.
+      if (this.cache && Date.now() - this.cache.at < 60_000) return this.cache.map;
+      throw new Error(`textile levels: HTTP ${res?.status ?? "unreachable"}`);
+    }
     const body = (await res.json()) as {
       data: { pairs: { sellToken: Address; buyToken: Address; minSellAmount: string; maxSellAmount: string; levels: { sellAmount: string; buyAmount: string }[] }[] };
     };
@@ -100,7 +104,8 @@ export class Textile {
    * pair isn't quoted or the size is outside what makers are offering.
    */
   async indicative(sell: Address, buy: Address, amount: bigint): Promise<bigint | null> {
-    const ladder = (await this.ladders()).get(key(sell, buy));
+    // A venue that can't be read prices nothing; the other venues still can.
+    const ladder = (await this.ladders().catch(() => null))?.get(key(sell, buy));
     return ladder ? interpolate(ladder, amount) : null;
   }
 
