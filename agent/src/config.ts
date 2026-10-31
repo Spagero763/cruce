@@ -38,6 +38,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     /** Per-order ceiling and floor, in dollars of the hub leg. */
     maxOrderUsd: Number(env.MAX_ORDER_USD ?? 200),
     minOrderUsd: Number(env.MIN_ORDER_USD ?? 2),
+    /** Paying an agent's service: smaller orders allowed, with a fixed part of the fee that covers gas. */
+    minPayUsd: Number(env.MIN_PAY_USD ?? 0.01),
+    payFlatUsd: Number(env.PAY_FLAT_USD ?? 0.02),
     /** How long a quote stays good for, and how far the fill may land under it. */
     quoteTtlMs: Number(env.QUOTE_TTL_SECONDS ?? 45) * 1000,
     slippageBps: Number(env.SLIPPAGE_BPS ?? 50),

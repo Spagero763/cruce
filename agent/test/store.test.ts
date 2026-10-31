@@ -11,7 +11,7 @@ import { memoryStore } from "./memory.js";
 const signer = privateKeyToAccount("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d");
 const ID = `0x${"cd".repeat(32)}`;
 const route: Route = { legs: [{ venue: "textile", from: "wARS", to: "USDT", quotedIn: "1", quotedOut: "1" }], feeLeg: 1, feeToken: "USDT" };
-const quote = { id: "q", from: "wARS" as const, to: "USDT" as const, amountIn: "1000", estOut: "1", minOut: "1", fee: "0", usd: "2", route, partner: null, expiresAt: Date.now() + 1000 };
+const quote = { id: "q", from: "wARS" as const, to: "USDT" as const, amountIn: "1000", estOut: "1", minOut: "1", fee: "0", usd: "2", route, partner: null, target: null, expiresAt: Date.now() + 1000 };
 
 describe("store", () => {
   it("keeps quotes, orders, their history and moves them one step at a time", async () => {

@@ -29,4 +29,6 @@ export interface Route {
   /** The fee is taken from the amount entering this leg; `legs.length` means from the final amount. */
   feeLeg: number;
   feeToken: CurrencyCode;
+  /** A fixed part of the fee, in atomic units of the fee token, that covers gas on very small orders. */
+  flatFee?: string;
 }

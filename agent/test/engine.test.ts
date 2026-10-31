@@ -4,15 +4,16 @@ import { applyPayment } from "../src/payments.js";
 import { price } from "../src/router.js";
 import type { CurrencyCode } from "../src/currencies.js";
 import type { Store } from "../src/db.js";
+import type { Target } from "../src/target.js";
 import { cfg, convert, fakes, FRIEND, PAYER, units } from "./fakes.js";
 import { memoryStore } from "./memory.js";
 
 const ID = `0x${"ab".repeat(32)}`;
 const quiet = { error: () => {}, warn: () => {}, log: () => {} } as unknown as Console;
 
-async function paidOrder(store: Store, f: ReturnType<typeof fakes>, from: CurrencyCode = "wARS", to: CurrencyCode = "wBRL", amount = "165000", recipient: string | null = null, partner: string | null = null) {
+async function paidOrder(store: Store, f: ReturnType<typeof fakes>, from: CurrencyCode = "wARS", to: CurrencyCode = "wBRL", amount = "165000", recipient: string | null = null, partner: string | null = null, target: Target | null = null) {
   const p = await price(cfg, f.venues, from, to, units(from, amount));
-  const quote = await store.createQuote({ id: "q1", from, to, amountIn: p.amountIn.toString(), estOut: p.estOut.toString(), minOut: p.minOut.toString(), fee: p.fee.toString(), usd: p.usd, route: p.route, partner, expiresAt: Date.now() + 45_000 });
+  const quote = await store.createQuote({ id: "q1", from, to, amountIn: p.amountIn.toString(), estOut: p.estOut.toString(), minOut: p.minOut.toString(), fee: p.fee.toString(), usd: p.usd, route: p.route, partner, target, expiresAt: Date.now() + 45_000 });
   const order = await store.createOrder(quote, ID, recipient);
   expect(await applyPayment(store, order, { payer: PAYER, currency: from, amount: p.amountIn.toString(), tx: "0xpaid" })).toBe("applied");
   return (await store.order(ID))!;
@@ -147,5 +148,30 @@ describe("running an order", () => {
     const [a, b] = await Promise.all([engine.run(ID), engine.run(ID)]);
     expect([a!.status, b!.status]).toContain("done");
     expect(f.transfers).toHaveLength(1);
+  });
+});
+
+describe("small pieces of the engine", () => {
+  it("matches a pool whatever order its fields came back in", async () => {
+    const { samePool } = await import("../src/engine.js");
+    const a = { kind: "v4" as const, currency0: "0xAa" as `0x${string}`, currency1: "0xbb" as `0x${string}`, fee: 3000, tickSpacing: 30, hooks: "0x00" as `0x${string}` };
+    const reordered = JSON.parse(JSON.stringify({ hooks: "0x00", fee: 3000, kind: "v4", currency1: "0xBB", tickSpacing: 30, currency0: "0xaa" }));
+    expect(samePool(a, reordered)).toBe(true);
+    expect(samePool({ kind: "v3", fee: 100 }, { kind: "v3", fee: 100 })).toBe(true);
+    expect(samePool({ kind: "v3", fee: 100 }, { kind: "v3", fee: 500 })).toBe(false);
+    expect(samePool(a, undefined)).toBe(false);
+  });
+
+  it("moves on to the next venue when one refuses outright", async () => {
+    const store = await memoryStore();
+    const f = fakes();
+    const engine = createEngine(cfg, store, f.chain, f.venues, quiet);
+    await paidOrder(store, f, "USDT", "wARS", "20");
+    f.venues.textile.firm = async () => {
+      throw new Error("textile request: HTTP 400 sellAmount is below the RFQ minimum");
+    };
+    f.venues.textile.indicative = async () => null;
+    const done = (await engine.run(ID))!;
+    expect(done.status).toBe("done");
   });
 });

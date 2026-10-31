@@ -13,7 +13,8 @@ import type { Order, OrderEvent, Store } from "./db.js";
 import { RUNNING, type Engine } from "./engine.js";
 import { createPayments, PAY_ROUTE } from "./payments.js";
 import type { Rates, Reference } from "./rates.js";
-import { NoRoute, price, type Venues } from "./router.js";
+import { NoRoute, price, priceForOutput, type Venues } from "./router.js";
+import { hostOf, pickOffer, readOffers } from "./target.js";
 import type { createWorker } from "./worker.js";
 
 const signed = z.object({ address: z.string(), nonce: z.string(), signature: z.string().startsWith("0x") });
@@ -139,9 +140,66 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
       usd: priced.usd,
       route: priced.route,
       partner: partner?.code ?? null,
+      target: null,
       expiresAt: Date.now() + cfg.quoteTtlMs,
     });
     return c.json({ quote: publicQuote(quote), compare: ref ? compare(ref, from, to, priced.amountIn, priced.estOut) : null });
+  });
+
+  // Paying someone else's x402 endpoint in the currency the payer holds. Cruce reads the seller's
+  // price, quotes the exact input that covers it, and on payment converts and pays the seller.
+  const payQuote = z.object({
+    url: z.string().url().max(2_000),
+    method: z.enum(["GET", "POST", "PUT"]).default("GET"),
+    body: z.string().max(20_000).optional(),
+    contentType: z.string().max(100).optional(),
+    from: z.string(),
+    partner: z.string().max(40).optional(),
+  });
+  app.post("/api/pay/quote", async (c) => {
+    await limit(`payquote:${ip(c)}`, 60, 60_000);
+    const body = payQuote.parse(await c.req.json());
+    if (!(await enabled(body.from))) throw new Error("pay with one of the currencies we change today");
+    const from = body.from as CurrencyCode;
+    const url = new URL(body.url);
+    if (url.protocol !== "https:") throw new Error("only https services can be paid");
+    if (url.host === new URL(cfg.publicUrl).host) throw new Error("that is Cruce itself");
+    const init: RequestInit = { method: body.method, headers: body.contentType ? { "content-type": body.contentType } : {}, body: body.body };
+    const offers = await readOffers(body.url, init);
+    if (!offers.length) throw new Error("that service doesn't take payment on Celo in a currency Cruce can produce");
+    if (offers.some((o) => o.code === from)) throw new HttpError(409, `that service already accepts ${CURRENCIES[from].label}, pay it directly`);
+    const offer = pickOffer(offers, from);
+    if (!offer) throw new Error("that service asks for a currency Cruce can't produce yet");
+    const partner = body.partner ? await store.partner(body.partner) : null;
+    const ref = await rates.reference().catch(() => null);
+    const priced = await priceForOutput(cfg, venues, from, offer.code, BigInt(offer.amount), ref, { flatUsd: cfg.payFlatUsd, minUsd: cfg.minPayUsd });
+    const quote = await store.createQuote({
+      id: quoteId(),
+      from,
+      to: offer.code,
+      amountIn: priced.amountIn.toString(),
+      estOut: priced.estOut.toString(),
+      minOut: priced.minOut.toString(),
+      fee: priced.fee.toString(),
+      usd: priced.usd,
+      route: priced.route,
+      partner: partner?.code ?? null,
+      target: { url: body.url, method: body.method, body: body.body ?? null, contentType: body.contentType ?? null, offer },
+      expiresAt: Date.now() + cfg.quoteTtlMs,
+    });
+    return c.json({
+      quote: publicQuote(quote),
+      service: { host: hostOf(body.url), currency: offer.code, amount: offer.amount, display: formatUnits(BigInt(offer.amount), CURRENCIES[offer.code].decimals) },
+    });
+  });
+
+  // What the paid service answered. The order id is a 32-byte secret only the payer was given.
+  app.get("/api/orders/:id/result", async (c) => {
+    c.header("cache-control", "no-store");
+    const order = await loadOrder(c);
+    if (!order.target) throw new HttpError(404, "this order didn't pay a service");
+    if (order.result?.state !== "paid") return c.json({ status: order.status, ready: false }, 202);
+    return c.json({ ready: true, status: order.result.status, contentType: order.result.contentType, body: order.result.body, tx: order.result.tx });
   });
 
   const newOrder = z.object({ quoteId: z.string().min(6).max(32), recipient: z.string().refine(isAddress).optional() });
@@ -296,7 +354,7 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
 
 const display = (amount: string | null, code: CurrencyCode) => (amount == null ? null : formatUnits(BigInt(amount), CURRENCIES[code].decimals));
 
-export function publicQuote(q: { id: string; from: CurrencyCode; to: CurrencyCode; amountIn: string; estOut: string; minOut: string; fee: string; usd: string; route: { legs: { venue: string; from: string; to: string }[]; feeToken: CurrencyCode }; partner: string | null; expiresAt: number }) {
+export function publicQuote(q: { id: string; from: CurrencyCode; to: CurrencyCode; amountIn: string; estOut: string; minOut: string; fee: string; usd: string; route: { legs: { venue: string; from: string; to: string }[]; feeToken: CurrencyCode }; partner: string | null; target?: { url: string; offer: { code: CurrencyCode; amount: string } } | null; expiresAt: number }) {
   return {
     id: q.id,
     from: q.from,
@@ -310,6 +368,7 @@ export function publicQuote(q: { id: string; from: CurrencyCode; to: CurrencyCod
     display: { in: display(q.amountIn, q.from), out: display(q.estOut, q.to), min: display(q.minOut, q.to), fee: display(q.fee, q.route.feeToken) },
     legs: q.route.legs.map((l) => ({ venue: l.venue, from: l.from, to: l.to })),
     partner: q.partner,
+    service: q.target ? { host: hostOf(q.target.url), currency: q.target.offer.code, amount: q.target.offer.amount } : null,
     expiresAt: q.expiresAt,
   };
 }
@@ -331,6 +390,7 @@ export function publicOrder(o: Order) {
     payer: o.payer,
     recipient: o.recipient,
     partner: o.partner,
+    service: o.target ? { host: hostOf(o.target.url), currency: o.target.offer.code, amount: o.target.offer.amount, answered: o.result?.state === "paid" ? o.result.status : null } : null,
     status: o.status,
     paidTx: o.paidTx,
     payoutTx: o.payoutTx,

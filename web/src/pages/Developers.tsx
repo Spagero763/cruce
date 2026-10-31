@@ -19,7 +19,9 @@ const order = await cruce.pay(q, { wallet, recipient: "0x…" });
 
 // 3. follow it: each leg lands with its own transaction
 const final = await cruce.wait(order.id);
-console.log(final.status, final.out, final.legs);`;
+
+// or pay any x402 service in what you hold; Cruce converts and pays the seller
+const { body } = await cruce.payEndpoint({ url: "https://…", from: "cNGN", wallet });`;
 
 export function Developers() {
   const { t, locale } = useI18n();
@@ -134,6 +136,13 @@ export function Developers() {
                 <span>
                   <span className="mono">/api/orders/:id</span>
                   <em>status, legs with transactions, payout, refund</em>
+                </span>
+              </li>
+              <li>
+                <span className="mono">POST</span>
+                <span>
+                  <span className="mono">/api/pay/quote {"{ url, from }"}</span>
+                  <em>pay any x402 service in the currency you hold: Cruce converts, pays the seller, returns the answer and the change</em>
                 </span>
               </li>
               <li>

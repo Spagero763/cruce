@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { CurrencyCode } from "./currencies.js";
+import type { Paid, Target } from "./target.js";
 import type { Route } from "./types.js";
 
 /** The one thing Store needs from a database. Backed by Postgres in production and PGlite in tests. */
@@ -28,6 +29,8 @@ export interface Quote {
   usd: string;
   route: Route;
   partner: string | null;
+  /** Set when the result is paid to someone's x402 endpoint instead of sent to a wallet. */
+  target: Target | null;
   expiresAt: number;
   createdAt: number;
 }
@@ -44,6 +47,9 @@ export interface Order {
   usd: string;
   route: Route;
   partner: string | null;
+  target: Target | null;
+  /** What the target answered; "sending" while the payment is in flight. */
+  result: (Paid & { state: "paid" }) | { state: "sending"; at: number } | null;
   payer: string | null;
   recipient: string | null;
   status: OrderStatus;
@@ -172,6 +178,9 @@ create index if not exists orders_status on orders(status);
 create index if not exists orders_payer on orders(payer);
 create index if not exists orders_recipient on orders(recipient);
 create index if not exists orders_partner on orders(partner);
+alter table quotes add column if not exists target jsonb;
+alter table orders add column if not exists target jsonb;
+alter table orders add column if not exists result jsonb;
 create table if not exists events (
   id serial primary key,
   order_id text not null,
@@ -220,6 +229,7 @@ const toQuote = (r: Row): Quote => ({
   usd: r.usd as string,
   route: json(r.route) as Route,
   partner: str(r.partner),
+  target: r.target ? (json(r.target) as Target) : null,
   expiresAt: Number(r.expires_at),
   createdAt: Number(r.created_at),
 });
@@ -236,6 +246,8 @@ const toOrder = (r: Row): Order => ({
   usd: r.usd as string,
   route: json(r.route) as Route,
   partner: str(r.partner),
+  target: r.target ? (json(r.target) as Target) : null,
+  result: r.result ? (json(r.result) as Order["result"]) : null,
   payer: str(r.payer),
   recipient: str(r.recipient),
   status: r.status as OrderStatus,
@@ -272,6 +284,7 @@ const COLUMNS = {
   refundTx: "refund_tx",
   attempts: "attempts",
   error: "error",
+  result: "result",
 } as const;
 
 type OrderPatch = Partial<Pick<Order, keyof typeof COLUMNS>>;
@@ -377,9 +390,9 @@ export class Store {
 
   async createQuote(q: Omit<Quote, "createdAt">): Promise<Quote> {
     await this.db.query(
-      `insert into quotes (id, from_code, to_code, amount_in, est_out, min_out, fee, usd, route, partner, expires_at, created_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-      [q.id, q.from, q.to, q.amountIn, q.estOut, q.minOut, q.fee, q.usd, JSON.stringify(q.route), q.partner, q.expiresAt, Date.now()],
+      `insert into quotes (id, from_code, to_code, amount_in, est_out, min_out, fee, usd, route, partner, target, expires_at, created_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      [q.id, q.from, q.to, q.amountIn, q.estOut, q.minOut, q.fee, q.usd, JSON.stringify(q.route), q.partner, q.target ? JSON.stringify(q.target) : null, q.expiresAt, Date.now()],
     );
     return (await this.quote(q.id))!;
   }
@@ -392,9 +405,9 @@ export class Store {
   async createOrder(q: Quote, id: string, recipient: string | null): Promise<Order> {
     const now = Date.now();
     await this.db.query(
-      `insert into orders (id, quote_id, from_code, to_code, amount_in, est_out, min_out, fee, usd, route, partner, recipient, status, created_at, updated_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'awaiting_payment', $13, $13)`,
-      [id, q.id, q.from, q.to, q.amountIn, q.estOut, q.minOut, q.fee, q.usd, JSON.stringify(q.route), q.partner, recipient?.toLowerCase() ?? null, now],
+      `insert into orders (id, quote_id, from_code, to_code, amount_in, est_out, min_out, fee, usd, route, partner, target, recipient, status, created_at, updated_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'awaiting_payment', $14, $14)`,
+      [id, q.id, q.from, q.to, q.amountIn, q.estOut, q.minOut, q.fee, q.usd, JSON.stringify(q.route), q.partner, q.target ? JSON.stringify(q.target) : null, recipient?.toLowerCase() ?? null, now],
     );
     return (await this.order(id))!;
   }
@@ -431,7 +444,7 @@ export class Store {
       const sets = keys.map((k, i) => `${COLUMNS[k]} = $${i + 1}`).join(", ");
       const values = keys.map((k) => {
         const v = patch[k];
-        if (k === "route") return JSON.stringify(v);
+        if (k === "route" || k === "result") return v == null ? null : JSON.stringify(v);
         if ((k === "payer" || k === "recipient") && typeof v === "string") return v.toLowerCase();
         return v ?? null;
       });

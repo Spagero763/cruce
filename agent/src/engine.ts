@@ -6,6 +6,7 @@ import { NotSent, Reverted, type Chain } from "./chain.js";
 import type { Config } from "./config.js";
 import { CURRENCIES, type CurrencyCode } from "./currencies.js";
 import type { Order, Store } from "./db.js";
+import { NotPaid, payTarget, type Paid, type Target } from "./target.js";
 import type { Textile } from "./textile.js";
 import { poolsFor, V4_ROUTER, type Uniswap } from "./uniswap.js";
 import type { Leg, PoolRef } from "./types.js";
@@ -26,12 +27,16 @@ interface Got {
 export interface Venues {
   textile: Pick<Textile, "firm" | "submit" | "cancel">;
   uniswap: Pick<Uniswap, "quote" | "build">;
+  /** How a seller's x402 endpoint is paid. Real by default; replaced in tests. */
+  pay?: (target: Target) => Promise<Paid>;
 }
 
 export type Engine = ReturnType<typeof createEngine>;
 
 export function createEngine(cfg: Config, store: Store, chain: Chain, venues: Venues, log = console) {
-  const feeOf = (amount: bigint) => (amount * BigInt(cfg.feeBps)) / 10_000n;
+  const feeOf = (amount: bigint, flat = 0n) => (amount * BigInt(cfg.feeBps)) / 10_000n + flat;
+  const flatOf = (order: Order) => BigInt(order.route.flatFee ?? 0);
+  const pay = venues.pay ?? ((t: Target) => payTarget(chain, t));
   const under = (amount: bigint) => (amount * BigInt(10_000 - cfg.slippageBps)) / 10_000n;
 
   /** The only entry point. One run per order at a time; anything else sees the current state. */
@@ -68,7 +73,7 @@ export function createEngine(cfg: Config, store: Store, chain: Chain, venues: Ve
       if (leg.out != null) continue;
       let amountIn = i === 0 ? BigInt(order.amountIn) : BigInt(route.legs[i - 1].out!);
       if (route.feeLeg === i) {
-        feeTaken ??= feeOf(amountIn);
+        feeTaken ??= feeOf(amountIn, flatOf(order));
         amountIn -= feeTaken;
       }
       if (leg.tx) {
@@ -99,7 +104,7 @@ export function createEngine(cfg: Config, store: Store, chain: Chain, venues: Ve
   function lastLegMin(order: Order): bigint {
     const minOut = BigInt(order.minOut);
     if (order.route.feeLeg !== order.route.legs.length) return minOut;
-    return (minOut * 10_000n) / BigInt(10_000 - cfg.feeBps) + 1n;
+    return ((minOut + flatOf(order)) * 10_000n) / BigInt(10_000 - cfg.feeBps) + 1n;
   }
 
   async function landed(order: Order, i: number, leg: Leg, got: Got) {
@@ -117,7 +122,7 @@ export function createEngine(cfg: Config, store: Store, chain: Chain, venues: Ve
     if (leg.venue === "textile") {
       tries.push(() => viaTextile(leg, amountIn, minOut, onHash), ...pools.map(uni));
     } else {
-      const mine = pools.find((p) => JSON.stringify(p) === JSON.stringify(leg.pool));
+      const mine = pools.find((p) => samePool(p, leg.pool));
       tries.push(...(mine ? [uni(mine)] : []), () => viaTextile(leg, amountIn, minOut, onHash), ...pools.filter((p) => p !== mine).map(uni));
     }
     let last: unknown = null;
@@ -139,7 +144,10 @@ export function createEngine(cfg: Config, store: Store, chain: Chain, venues: Ve
   async function viaTextile(leg: Leg, amountIn: bigint, minOut: bigint, onHash: (hash: Hex) => Promise<void>): Promise<Got> {
     const sellToken = CURRENCIES[leg.from].address;
     const buyToken = CURRENCIES[leg.to].address;
-    const q = await venues.textile.firm({ sellToken, buyToken, sellAmount: amountIn, taker: chain.account });
+    // A refused request moved nothing, so any venue error here is a reason to try the next one.
+    const q = await venues.textile.firm({ sellToken, buyToken, sellAmount: amountIn, taker: chain.account }).catch((err) => {
+      throw new Retry(`textile: ${String(err instanceof Error ? err.message : err).slice(0, 160)}`);
+    });
     if (q.status === "no_quote") throw new Retry(`textile: ${q.reason}`);
     if (q.buyAmount < minOut || q.takerPays > amountIn) {
       await venues.textile.cancel(q.rfqId, q.claimToken);
@@ -170,13 +178,14 @@ export function createEngine(cfg: Config, store: Store, chain: Chain, venues: Ve
     let final = BigInt(legs[legs.length - 1].out!);
     let feeTaken = order.feeTaken ? BigInt(order.feeTaken) : 0n;
     if (order.route.feeLeg === legs.length && !order.feeTaken) {
-      feeTaken = feeOf(final);
+      feeTaken = feeOf(final, flatOf(order));
       final -= feeTaken;
       order = await store.updateOrder(order.id, { feeTaken: feeTaken.toString() });
     } else if (order.route.feeLeg === legs.length) {
       final -= feeTaken;
     }
     const recipient = getAddress(order.recipient ?? order.payer!);
+    if (order.target) return payOut(order, final, feeTaken, recipient);
 
     if (order.payoutTx) {
       const { status } = await chain.outcome(order.payoutTx as Hex);
@@ -191,6 +200,10 @@ export function createEngine(cfg: Config, store: Store, chain: Chain, venues: Ve
       await store.addEvent(order.id, "paid_out", { to: recipient, amount: amount.toString(), currency: order.to }, sent.hash);
     }
 
+    return finish(order, feeTaken);
+  }
+
+  async function finish(order: Order, feeTaken: bigint): Promise<Order> {
     if (order.partner && !order.partnerTx && feeTaken > 0n) {
       const partner = await store.partner(order.partner);
       const share = (feeTaken * BigInt(Math.min(partner?.shareBps ?? 0, cfg.feeBps))) / BigInt(cfg.feeBps);
@@ -205,6 +218,42 @@ export function createEngine(cfg: Config, store: Store, chain: Chain, venues: Ve
     await store.transition(order.id, "paying_out", "done");
     await store.addEvent(order.id, "done", { out: order.outAmount, fee: feeTaken.toString() });
     return (await store.order(order.id))!;
+  }
+
+  /**
+   * Pays the seller's endpoint with what the legs produced, then sends any leftover back. A payment
+   * already in flight when an instance died is never sent twice: a person checks it instead.
+   */
+  async function payOut(order: Order, final: bigint, feeTaken: bigint, recipient: Address): Promise<Order> {
+    const target = order.target!;
+    const need = BigInt(target.offer.amount);
+    if (order.result?.state === "sending") {
+      await store.transition(order.id, "paying_out", "attention");
+      await store.addEvent(order.id, "attention", { reason: "target_payment_unknown" });
+      return (await store.order(order.id))!;
+    }
+    if (order.result?.state !== "paid") {
+      if (final < need) throw new Error(`conversion delivered ${final}, the service needs ${need}`);
+      order = await store.updateOrder(order.id, { result: { state: "sending", at: Date.now() } });
+      let paid: Paid;
+      try {
+        paid = await pay(target);
+      } catch (err) {
+        // Nothing was charged, so the order can be retried or refunded like any other failure.
+        await store.updateOrder(order.id, { result: null });
+        throw err instanceof NotPaid ? new Error(err.message) : err;
+      }
+      order = await store.updateOrder(order.id, { result: { state: "paid", ...paid }, payoutTx: paid.tx, outAmount: need.toString() });
+      await store.addEvent(order.id, "target_paid", { host: new URL(target.url).host, amount: need.toString(), currency: target.offer.code, status: paid.status }, paid.tx);
+    }
+    const left = final - need;
+    if (left > 0n && !order.refundTx) {
+      const sent = await chain.transfer(order.to, recipient, left, async (hash) => {
+        order = await store.updateOrder(order.id, { refundTx: hash });
+      });
+      await store.addEvent(order.id, "change_returned", { amount: left.toString(), currency: order.to }, sent.hash);
+    }
+    return finish(order, feeTaken);
   }
 
   async function failed(order: Order, err: unknown): Promise<Order> {
@@ -254,4 +303,11 @@ export function createEngine(cfg: Config, store: Store, chain: Chain, venues: Ve
   }
 
   return { run, refund, address: chain.address as Address };
+}
+
+/** The database stores pools as JSON with its own key order, so pools are compared field by field. */
+export function samePool(a: PoolRef, b: PoolRef | undefined): boolean {
+  if (!b || a.kind !== b.kind || a.fee !== b.fee) return false;
+  if (a.kind === "v3" || b.kind === "v3") return true;
+  return a.currency0.toLowerCase() === b.currency0.toLowerCase() && a.currency1.toLowerCase() === b.currency1.toLowerCase() && a.tickSpacing === b.tickSpacing && a.hooks.toLowerCase() === b.hooks.toLowerCase();
 }

@@ -69,9 +69,32 @@ Agent wallet [`0x242C4917FdaFB48A845BFD4356D81AE45EE6E77e`](https://celoscan.io/
 | Uniswap v3 fill, wARS to USD₮ | [`0xa859f0…8defd`](https://celoscan.io/tx/0xa859f0eed8c28313bca6ceda6e12896c88420719608a183164c369947018defd) |
 | Uniswap v4 fill, USDC to wBRL | [`0xfc4eee…c0970e`](https://celoscan.io/tx/0xfc4eee83a53190b001d9e7c8eb3306dd080f551951ec470efee0715d9ec0970e) |
 | Order: 2 USD₮ paid over x402, filled on Textile, paid out as wBRL, 18.5 s | pay [`0xd7a2ce…5460f`](https://celoscan.io/tx/0xd7a2ce0002ddf855e2741c35dad4ef829a2b93a794233b3f9d04576dd825460f) · fill [`0xab04dd…2746fc`](https://celoscan.io/tx/0xab04ddef69fecb8afc6a59768c0f08790703f2d31d5f469edcbb8f0d902746fc) · payout [`0x0289f4…c18c1`](https://celoscan.io/tx/0x0289f48ffa89764505b82d251ac9066ab0c07ea0653d47d28722232f101c18c1) |
+| An agent holding only pesos buys a buy inference call priced in USD₮: 49.97 wARS paid over x402, swapped on Uniswap v3, buy paid, change returned, answer handed back, 37.4 s | pay [`0x795a65…cd7ad`](https://celoscan.io/tx/0x795a65faaa134e1a3a35695271e6329ca28c85e8649019614519ebfacf4cd7ad) · swap [`0xa5f1e1…6618b`](https://celoscan.io/tx/0xa5f1e160dc4d0d45c4535736168f686de0d21cde2fc08f5e9f9e10ca87c6618b) · buy paid [`0xba9b13…dad47`](https://celoscan.io/tx/0xba9b13738cac8990f91b93cc4fbd633896fa6359dda9aaaee0e6a6674d7dad47) · change [`0x812a44…a8303`](https://celoscan.io/tx/0x812a44f976307ea95d962ec53ab58741bec7ea3dcabf069fe3950084c61a8303) |
 | Order: 10.7 wBRL paid over x402 (Permit2), two Textile legs, paid out as cNGN, 25.5 s | pay [`0x6250b0…974a2e`](https://celoscan.io/tx/0x6250b06ad52473560cd2ac001f005e7ccb19a11def49038996959c80ff974a2e) · leg 1 [`0xe7437e…ea11e6`](https://celoscan.io/tx/0xe7437ea694f9be308c15668c24fb056090c8a6f651a27468a2573a3d4fea11e6) · leg 2 [`0x1e2807…22fa8`](https://celoscan.io/tx/0x1e28076e007606907d4f79387a623964992822f520e357521f54229374622fa8) · payout [`0xafd889…87077f`](https://celoscan.io/tx/0xafd88983c587f085307cd1a952e961302309451abeae68f6bfa990444d87077f) |
 
 The buy calls the agent paid for are listed at `/api/proof/buy` with their settlement transactions.
+
+## Pay any x402 service in the currency you hold
+
+x402 settles in whatever single asset the seller names, and the facilitator never converts. An agent
+holding naira can't pay a service priced in USDC; an agent holding dollars can't pay an invoice priced
+in soles. Cruce closes that gap: give it the service's address and the currency you hold. It reads the
+seller's price, quotes the exact input that covers it at the guaranteed minimum, and on payment
+converts, pays the seller in its own asset from the agent's wallet, sends back any change, and keeps
+the seller's answer for you to read.
+
+```
+POST /api/pay/quote { url, method, body, from }   the seller's price, in what you hold
+POST /api/orders    { quoteId }                     then pay /x402/orders/:id/pay as usual
+GET  /api/orders/:id/result                         what the service answered
+```
+
+Small payments carry a fixed two cents on top of the percentage, which covers the gas of converting.
+A payment already in flight when an instance stops is never sent twice; a person checks it instead.
+
+```ts
+const { body } = await cruce.payEndpoint({ url: "https://…", from: "cNGN", wallet });
+```
 
 ## Plug it in
 
@@ -92,7 +115,7 @@ third of the fee with every order that carries it.
 
 ```
 npm install
-npm test                       # router, engine, store: 24 tests on an in-process Postgres
+npm test                       # router, engine, paying services, store: 34 tests on an in-process Postgres
 npm run venues -w @cruce/agent # what the venues quote right now, read-only
 npm run preview -w @cruce/agent && npm run dev -w @cruce/web
 ```

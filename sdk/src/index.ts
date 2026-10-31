@@ -158,6 +158,23 @@ export class Cruce {
     }
   }
 
+  /**
+   * Pays any x402 endpoint in the currency the wallet holds. Cruce reads the seller's price,
+   * converts, pays the seller in the asset it asked for, sends back any change, and returns the
+   * seller's answer.
+   */
+  async payEndpoint(args: { url: string; from: Code; method?: "GET" | "POST" | "PUT"; body?: string; contentType?: string; wallet: WalletClient; pub?: PublicClient }): Promise<{ order: Order; status: number; contentType: string | null; body: string }> {
+    const { quote } = await this.req<{ quote: Quote }>("/api/pay/quote", {
+      method: "POST",
+      body: JSON.stringify({ url: args.url, from: args.from, method: args.method ?? "GET", body: args.body, contentType: args.contentType, ...(this.partner ? { partner: this.partner } : {}) }),
+    });
+    const paid = await this.pay(quote, { wallet: args.wallet, pub: args.pub });
+    const order = await this.wait(paid.id);
+    const res = await fetch(`${this.base}/api/orders/${order.id}/result`);
+    const result = (await res.json().catch(() => ({}))) as { status?: number; contentType?: string | null; body?: string };
+    return { order, status: result.status ?? 0, contentType: result.contentType ?? null, body: result.body ?? "" };
+  }
+
   /** A link to the site with the conversion prefilled and your partner code attached. */
   link(args: { from: Code; to: Code; amount?: string }): string {
     const q = new URLSearchParams({ from: args.from, to: args.to, ...(args.amount ? { amount: args.amount } : {}), ...(this.partner ? { ref: this.partner } : {}) });
