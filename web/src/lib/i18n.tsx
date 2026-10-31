@@ -48,7 +48,7 @@ const en = {
   "why.b.title": "A price you can hold",
   "why.b.body": "The quote shows an estimate and a minimum. If the market moves under the minimum, you are refunded, not short-changed.",
   "why.c.title": "No gas, any wallet",
-  "why.c.body": "One signature pays. MiniPay, MetaMask, Rainbow, or an email sign-in that makes a wallet for you.",
+  "why.c.body": "One signature pays. MiniPay, MetaMask, Rainbow, or sign in with your email and a wallet is made for you.",
   "why.d.title": "Nothing held",
   "why.d.body": "The agent holds your money for about thirty seconds and no contract holds a balance. Every leg is a transaction on Celo.",
 

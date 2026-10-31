@@ -67,7 +67,7 @@ export default function PrivyHost({ appId, chain, ...rest }: PrivyBridgeProps) {
     <PrivyProvider
       appId={appId}
       config={{
-        loginMethods: ["email", "google", "sms", "wallet"],
+        loginMethods: ["email", "wallet"],
         appearance: {
           theme: "light",
           accentColor: "#2D5BFF",
