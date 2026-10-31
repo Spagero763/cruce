@@ -19,7 +19,7 @@ export interface Reference {
 
 const OFFICIAL_TTL = 10 * 60_000;
 const STREET_TTL = 60 * 60_000;
-const FIATS = ["ARS", "BRL", "COP", "MXN", "CLP", "PEN", "NGN"];
+const FIATS = ["ARS", "BRL", "COP", "MXN", "CLP", "PEN", "NGN", "IDR"];
 
 /** Boards read through a rented browser. Each is a public page with one headline rate. */
 const BOARDS: { fiat: string; url: string; ask: string }[] = [

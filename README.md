@@ -22,7 +22,7 @@ once. No gas, no account, no counter.
 
 | | |
 |---|---|
-| **People** | Change wARS, wBRL, wCOP, cNGN, USA₮, USD₮ or USDC into each other from MiniPay, MetaMask, Rainbow, or an email sign-in that makes a wallet for you. The quote shows an estimate and a minimum. Under the minimum, you are refunded, not short-changed. |
+| **People** | Change wARS, wBRL, wCOP, cNGN, USA₮, USD₮ or USDC into each other, or into Indonesian rupiah (IDRX, receive only: Celo's x402 facilitator doesn't settle it yet) from MiniPay, MetaMask, Rainbow, or an email sign-in that makes a wallet for you. The quote shows an estimate and a minimum. Under the minimum, you are refunded, not short-changed. |
 | **Builders** | One call quotes, one payment settles. Any conversion that carries your partner code pays you a third of the fee, on-chain, with the order itself. An npm package and a link that pays you. |
 | **The agent** | Holds nothing between orders and no contract holds a balance. Every leg is a public transaction on Celo, tagged, from one wallet. |
 | **Languages** | English, Español, Português. |

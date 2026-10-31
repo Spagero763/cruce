@@ -1,10 +1,13 @@
 import { formatUnits } from "viem";
 import type { Currency } from "./api";
 
+/** Currencies whose amounts read in whole units: nobody writes centavos on a peso price. */
+const WHOLE = new Set(["ARS", "COP", "NGN", "CLP", "IDR"]);
+
 /** "$ 33.000" for wARS, "R$ 106,66" for wBRL, "₦ 27.404" for cNGN, "US$ 20.00" for the dollars. */
 export function money(amount: bigint | string, c: Currency, opts: { compact?: boolean } = {}): string {
   const value = Number(formatUnits(BigInt(amount), c.decimals));
-  const whole = c.fiat === "ARS" || c.fiat === "COP" || c.fiat === "NGN" || c.fiat === "CLP";
+  const whole = WHOLE.has(c.fiat);
   return new Intl.NumberFormat(c.locale, {
     style: "currency",
     currency: c.fiat,
@@ -16,7 +19,7 @@ export function money(amount: bigint | string, c: Currency, opts: { compact?: bo
 
 /** A plain number in the currency's locale, no symbol, for inputs and rates. */
 export function plain(value: number, c: Currency, digits?: number): string {
-  const whole = c.fiat === "ARS" || c.fiat === "COP" || c.fiat === "NGN" || c.fiat === "CLP";
+  const whole = WHOLE.has(c.fiat);
   return new Intl.NumberFormat(c.locale, { maximumFractionDigits: digits ?? (whole ? 0 : 2) }).format(value);
 }
 

@@ -123,6 +123,7 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
     const to = c.req.query("to") as CurrencyCode;
     const amount = c.req.query("amount") ?? "";
     if (!(await enabled(from)) || !(await enabled(to))) throw new Error("pick two of the currencies we change today");
+    if (!CURRENCIES[from].payIn) throw new Error(`${CURRENCIES[from].label} can be received but not paid with yet`);
     if (!/^\d+(\.\d{1,18})?$/.test(amount)) throw new Error("enter an amount");
     const amountIn = parseUnits(amount, CURRENCIES[from].decimals);
     if (amountIn === 0n) throw new Error("enter an amount");
@@ -161,6 +162,7 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
     const body = payQuote.parse(await c.req.json());
     if (!(await enabled(body.from))) throw new Error("pay with one of the currencies we change today");
     const from = body.from as CurrencyCode;
+    if (!CURRENCIES[from].payIn) throw new Error(`${CURRENCIES[from].label} can be received but not paid with yet`);
     const url = new URL(body.url);
     if (url.protocol !== "https:") throw new Error("only https services can be paid");
     if (url.host === new URL(cfg.publicUrl).host) throw new Error("that is Cruce itself");

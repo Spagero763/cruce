@@ -78,6 +78,13 @@ export function CurrencyMark({ code }: { code: string }) {
           <rect x="10.67" width="5.33" height="16" fill="#d91023" />
         </Clip>
       );
+    case "IDRX":
+      return (
+        <Clip id="cm-id">
+          <rect width="16" height="8" fill="#ce1126" />
+          <rect y="8" width="16" height="8" fill="#fff" />
+        </Clip>
+      );
     case "cNGN":
       return (
         <Clip id="cm-ng">

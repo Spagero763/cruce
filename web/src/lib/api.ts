@@ -12,6 +12,7 @@ export interface Currency {
   domain: { name: string; version: string };
   kind: "dollar" | "local";
   enabled: boolean;
+  payIn?: boolean;
 }
 
 export interface AppConfig {

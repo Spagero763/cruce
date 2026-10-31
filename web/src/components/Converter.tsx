@@ -9,7 +9,7 @@ import { Rolling } from "./Rolling";
 import { useTransitionNavigate } from "./Transition";
 import "./Converter.css";
 
-const DEFAULT_AMOUNT: Record<string, string> = { wARS: "50000", wBRL: "250", wCOP: "150000", cNGN: "50000", wMXN: "800", wCLP: "40000", wPEN: "150", USDT: "50", USDC: "50", USAT: "50" };
+const DEFAULT_AMOUNT: Record<string, string> = { IDRX: "300000", wARS: "50000", wBRL: "250", wCOP: "150000", cNGN: "50000", wMXN: "800", wCLP: "40000", wPEN: "150", USDT: "50", USDC: "50", USAT: "50" };
 
 export interface ConverterStart {
   from?: string;
@@ -91,12 +91,13 @@ export function Converter({ config, start = {}, className = "", onQuote }: { con
       setFrom(code);
       if (amount === (DEFAULT_AMOUNT[from] ?? "")) setAmount(DEFAULT_AMOUNT[code] ?? "50");
     } else {
-      if (code === from) setFrom(to);
+      if (code === from) setFrom(tc.payIn === false ? "USDT" : to);
       setTo(code);
     }
   };
 
   const flip = () => {
+    if (tc.payIn === false) return;
     const nextAmount = quote ? trimmed(quote.quote.display.out, tc) : (DEFAULT_AMOUNT[to] ?? "50");
     setFrom(to);
     setTo(from);
@@ -142,7 +143,7 @@ export function Converter({ config, start = {}, className = "", onQuote }: { con
           placeholder="0"
           aria-label={t("cv.change")}
         />
-        <FlagRail code={from} currencies={config.currencies} onPick={(c) => pick("from", c)} soon={t("cv.soon")} />
+        <FlagRail code={from} currencies={config.currencies.filter((c) => c.payIn !== false)} onPick={(c) => pick("from", c)} soon={t("cv.soon")} />
       </div>
 
       <div className="cv-mid">
@@ -222,7 +223,7 @@ function Row({ label, out, ours, c, locale }: { label: string; out: number; ours
 
 function trimmed(decimal: string, c: Currency): string {
   const n = Number(decimal);
-  const whole = c.fiat === "ARS" || c.fiat === "COP" || c.fiat === "NGN" || c.fiat === "CLP";
+  const whole = ["ARS", "COP", "NGN", "CLP", "IDR"].includes(c.fiat);
   return whole ? String(Math.floor(n)) : n.toFixed(2);
 }
 
