@@ -30,7 +30,8 @@ export const Rolling = memo(function Rolling({ value, className = "" }: { value:
         }
         return (
           <span key={i} className="roll-col" aria-hidden>
-            <span className="roll-track" style={{ transform: `translateY(-${d * 10}%)` }}>
+            <span className="roll-size">{ch}</span>
+            <span className="roll-track" style={{ transform: `translate(-50%, -${d * 10}%)` }}>
               {Array.from(DIGITS).map((n) => (
                 <span key={n} className="roll-digit">
                   {n}

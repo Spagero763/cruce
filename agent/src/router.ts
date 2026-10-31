@@ -125,12 +125,15 @@ export async function price(cfg: Config, v: Venues, from: CurrencyCode, to: Curr
 
 /** How far the quoted rate sits from the reference cross rate, in basis points. Null without a reference. */
 export function driftBps(p: Priced, from: CurrencyCode, to: CurrencyCode, ref: Reference): number | null {
-  const rf = ref.perUsd[CURRENCIES[from].fiat];
-  const rt = ref.perUsd[CURRENCIES[to].fiat];
-  if (!rf || !rt) return null;
+  // A token can track either the official or the street rate (wARS follows the blue dollar, wBRL
+  // the commercial real), so the price only has to sit near one honest pairing of the two.
+  const rates = (fiat: string) => [ref.perUsd[fiat], ref.fiats[fiat]?.official, ref.fiats[fiat]?.street].filter((r): r is number => Boolean(r));
+  const rf = rates(CURRENCIES[from].fiat);
+  const rt = rates(CURRENCIES[to].fiat);
+  if (!rf.length || !rt.length) return null;
   const implied = Number(formatUnits(p.estOut + p.fee * (p.route.feeToken === to ? 1n : 0n), CURRENCIES[to].decimals)) / Number(formatUnits(p.amountIn, CURRENCIES[from].decimals));
-  const expected = rt / rf;
-  return Math.round(((implied - expected) / expected) * 10_000);
+  const drifts = rf.flatMap((f) => rt.map((t) => Math.round(((implied - t / f) / (t / f)) * 10_000)));
+  return drifts.reduce((a, b) => (Math.abs(b) < Math.abs(a) ? b : a));
 }
 
 /**

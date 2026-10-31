@@ -63,25 +63,26 @@ export function Landing() {
     void api.config().then(setConfig).catch(() => {});
   }, []);
 
-  // The first screen is dark: the nav knows while it is over it.
-  useEffect(() => {
-    document.body.classList.add("hero-dark");
-    return () => document.body.classList.remove("hero-dark");
-  }, []);
+  useEffect(() => () => document.body.classList.remove("hero-dark"), []);
 
   useGSAP(
     () => {
+      // The nav turns dark over every dark band, read off the page itself on each scroll.
+      const sync = () =>
+        document.body.classList.toggle(
+          "hero-dark",
+          [".hero-glow", ".devs", ".footer"].some((sel) => {
+            const r = document.querySelector(sel)?.getBoundingClientRect();
+            return r !== undefined && r.top <= 60 && r.bottom > 60;
+          }),
+        );
+      ScrollTrigger.create({ start: 0, end: "max", onUpdate: sync, onRefresh: sync });
+      sync();
+
       if (prefersReducedMotion()) return;
       const light = lite();
       gsap.fromTo(".hero-body", { y: 20, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 1, ease: "hold", delay: 0.5 });
       gsap.fromTo(".hero-cv", { y: 40, autoAlpha: 0, scale: 0.98 }, { y: 0, autoAlpha: 1, scale: 1, duration: 1.3, ease: "hold", delay: 0.35 });
-
-      ScrollTrigger.create({
-        trigger: ".hero",
-        start: "top 60px",
-        end: "bottom 60px",
-        onToggle: (self) => document.body.classList.toggle("hero-dark", self.isActive),
-      });
 
       // Scrolling out of the hero drives the crossing: the discs trade places through the dollar and
       // the amount received counts up with them. Scrubbed, so it reads at whatever pace you scroll.
@@ -264,10 +265,17 @@ export function Landing() {
           <pre className="code" aria-hidden>
             <span className="c">{"// one call quotes, one payment settles"}</span>
             {"\n"}
-            <span className="k">const</span> cruce = <span className="k">new</span> Cruce({"{"} partner: <span className="s">"your-code"</span> {"}"});{"\n"}
-            <span className="k">const</span> q = <span className="k">await</span> cruce.quote({"{"} from: <span className="s">"wARS"</span>, to: <span className="s">"wBRL"</span>, amount: <span className="s">"50000"</span> {"}"});{"\n"}
-            <span className="k">const</span> order = <span className="k">await</span> cruce.pay(q, {"{"} wallet, recipient {"}"});{"\n"}
-            <span className="c">{"// order.status === \"done\", legs with their txs"}</span>
+            <span className="k">const</span> cruce = <span className="k">new</span> Cruce({"{"}{"\n"}
+            {"  "}partner: <span className="s">"your-code"</span>,{"\n"}
+            {"});\n"}
+            <span className="k">const</span> q = <span className="k">await</span> cruce.quote({"{"}{"\n"}
+            {"  "}from: <span className="s">"wARS"</span>, to: <span className="s">"wBRL"</span>,{"\n"}
+            {"  "}amount: <span className="s">"50000"</span>,{"\n"}
+            {"});\n"}
+            <span className="k">const</span> order = <span className="k">await</span> cruce.pay(q, {"{"}{"\n"}
+            {"  "}wallet, recipient,{"\n"}
+            {"});\n"}
+            <span className="c">{"// done, every leg with its tx"}</span>
           </pre>
         </div>
       </Glow>

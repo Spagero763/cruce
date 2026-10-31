@@ -1,9 +1,11 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 // Small drawn flags and coins. Flag emoji don't render on Windows, so these are plain SVG.
 const R = 8;
 
-function Clip({ id, children }: { id: string; children: ReactNode }) {
+// Every flag gets its own clip id: a shared one breaks when its first copy sits in a hidden section.
+function Clip({ children }: { children: ReactNode }) {
+  const id = `cm${useId().replace(/[^\w-]/g, "")}`;
   return (
     <svg className="currency-mark" viewBox="0 0 16 16" width="16" height="16" aria-hidden>
       <defs>
@@ -30,7 +32,7 @@ export function CurrencyMark({ code }: { code: string }) {
   switch (code) {
     case "wARS":
       return (
-        <Clip id="cm-ar">
+        <Clip>
           <rect width="16" height="16" fill="#74acdf" />
           <rect y="5.33" width="16" height="5.34" fill="#fff" />
           <circle cx={R} cy={R} r="1.7" fill="#f6b40e" />
@@ -38,7 +40,7 @@ export function CurrencyMark({ code }: { code: string }) {
       );
     case "wBRL":
       return (
-        <Clip id="cm-br">
+        <Clip>
           <rect width="16" height="16" fill="#009c3b" />
           <path d="M8 2.6 14 8 8 13.4 2 8Z" fill="#ffdf00" />
           <circle cx={R} cy={R} r="2.7" fill="#002776" />
@@ -46,7 +48,7 @@ export function CurrencyMark({ code }: { code: string }) {
       );
     case "wCOP":
       return (
-        <Clip id="cm-co">
+        <Clip>
           <rect width="16" height="8" fill="#fcd116" />
           <rect y="8" width="16" height="4" fill="#003893" />
           <rect y="12" width="16" height="4" fill="#ce1126" />
@@ -54,7 +56,7 @@ export function CurrencyMark({ code }: { code: string }) {
       );
     case "wMXN":
       return (
-        <Clip id="cm-mx">
+        <Clip>
           <rect width="5.33" height="16" fill="#006847" />
           <rect x="5.33" width="5.34" height="16" fill="#fff" />
           <rect x="10.67" width="5.33" height="16" fill="#ce1126" />
@@ -63,7 +65,7 @@ export function CurrencyMark({ code }: { code: string }) {
       );
     case "wCLP":
       return (
-        <Clip id="cm-cl">
+        <Clip>
           <rect width="16" height="8" fill="#fff" />
           <rect y="8" width="16" height="8" fill="#d52b1e" />
           <rect width="6" height="8" fill="#0039a6" />
@@ -72,7 +74,7 @@ export function CurrencyMark({ code }: { code: string }) {
       );
     case "wPEN":
       return (
-        <Clip id="cm-pe">
+        <Clip>
           <rect width="5.33" height="16" fill="#d91023" />
           <rect x="5.33" width="5.34" height="16" fill="#fff" />
           <rect x="10.67" width="5.33" height="16" fill="#d91023" />
@@ -80,14 +82,14 @@ export function CurrencyMark({ code }: { code: string }) {
       );
     case "IDRX":
       return (
-        <Clip id="cm-id">
+        <Clip>
           <rect width="16" height="8" fill="#ce1126" />
           <rect y="8" width="16" height="8" fill="#fff" />
         </Clip>
       );
     case "cNGN":
       return (
-        <Clip id="cm-ng">
+        <Clip>
           <rect width="5.33" height="16" fill="#008751" />
           <rect x="5.33" width="5.34" height="16" fill="#fff" />
           <rect x="10.67" width="5.33" height="16" fill="#008751" />
@@ -95,7 +97,7 @@ export function CurrencyMark({ code }: { code: string }) {
       );
     case "USAT":
       return (
-        <Clip id="cm-us">
+        <Clip>
           {[0, 1, 2, 3, 4, 5, 6].map((i) => (
             <rect key={i} y={i * 2.29} width="16" height="2.29" fill={i % 2 ? "#fff" : "#b22234"} />
           ))}

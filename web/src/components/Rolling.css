@@ -13,8 +13,17 @@
   vertical-align: baseline;
 }
 
+.roll-size {
+  display: inline-block;
+  visibility: hidden;
+}
+
 .roll-track {
+  position: absolute;
+  top: 0;
+  left: 50%;
   display: grid;
+  justify-items: center;
   transition: transform 0.9s var(--ease-out);
   will-change: transform;
 }

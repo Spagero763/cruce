@@ -316,10 +316,11 @@
     align-items: center;
   }
   .story-stage .x { max-width: 260px; }
-  .story-steps { padding: 10vh 0; gap: 30vh; }
+  .story-steps { padding: 2vh 0 14vh; gap: 0; }
+  .story-step { min-height: 58svh; transform: none; }
   .why-grid { grid-template-columns: 1fr 1fr; }
   .devs-grid { grid-template-columns: 1fr; }
-  .devs .code { rotate: 0deg; }
+  .devs .code { font-size: 0.78rem; scrollbar-width: none; }
 }
 
 @media (max-width: 560px) {

@@ -63,4 +63,15 @@ describe("routing", () => {
     const off = { perUsd: { ARS: 1200, BRL: 5.36 }, fiats: {}, at: Date.now() };
     await expect(price(cfg, venues, "wARS", "wBRL", units("wARS", "165000"), off)).rejects.toThrow(/far from the market/);
   });
+
+  it("accepts a token that tracks the official rate when the street rate is the headline", async () => {
+    const { venues } = fakes();
+    const tourist = {
+      perUsd: { ARS: 1650, BRL: 5.36 * 1.1 },
+      fiats: { BRL: { official: 5.36, street: 5.36 * 1.1, at: Date.now() } },
+      at: Date.now(),
+    };
+    const p = await price(cfg, venues, "wARS", "wBRL", units("wARS", "165000"), tourist);
+    expect(Math.abs(driftBps(p, "wARS", "wBRL", tourist)!)).toBeLessThan(80);
+  });
 });
