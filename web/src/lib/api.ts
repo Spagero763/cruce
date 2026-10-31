@@ -141,6 +141,13 @@ export const api = {
     req<{ order: Order; payUrl: string; expiresAt: number }>("/api/orders", { method: "POST", body: JSON.stringify({ quoteId, recipient }) }),
   order: (id: string) => req<{ order: Order; events: OrderEvent[]; payUntil: number | null }>(`/api/orders/${id}`),
   resume: (id: string) => req<{ order: Order }>(`/api/orders/${id}/resume`, { method: "POST" }),
+  paid: async (id: string, tx: string) => {
+    const res = await fetch(`${BASE}/api/orders/${id}/paid`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tx }) });
+    if (res.status === 202) return false;
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) throw new ApiError(res.status, body.error ?? `Request failed (${res.status})`);
+    return true;
+  },
   myOrders: (address: string) => req<{ orders: Order[] }>(`/api/wallets/${address}/orders`),
   send: (body: { token: string; from: string; to: string; value: string; validAfter: string; validBefore: string; nonce: string; signature: string }) =>
     req<{ tx: string }>("/api/wallet/send", { method: "POST", body: JSON.stringify(body) }),

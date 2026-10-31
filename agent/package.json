@@ -13,7 +13,8 @@
     "swap-check": "tsx --env-file-if-exists=.env scripts/swap-check.ts",
     "live-check": "tsx --env-file-if-exists=.env scripts/live-check.ts",
     "identity": "tsx --env-file-if-exists=.env scripts/update-identity.ts",
-    "pay-check": "tsx --env-file-if-exists=.env scripts/pay-check.ts"
+    "pay-check": "tsx --env-file-if-exists=.env scripts/pay-check.ts",
+    "direct-check": "tsx --env-file-if-exists=.env scripts/direct-check.ts"
   },
   "dependencies": {
     "@celo/attribution-tags": "0.5.0",

@@ -11,7 +11,7 @@ import type { Availability } from "./availability.js";
 import { CURRENCIES, ENABLED, isCurrency, type CurrencyCode } from "./currencies.js";
 import type { Order, OrderEvent, Store } from "./db.js";
 import { RUNNING, type Engine } from "./engine.js";
-import { createPayments, PAY_ROUTE } from "./payments.js";
+import { applyPayment, checkDirect, createPayments, PAY_ROUTE } from "./payments.js";
 import type { Rates, Reference } from "./rates.js";
 import { NoRoute, price, priceForOutput, type Venues } from "./router.js";
 import { hostOf, pickOffer, readOffers } from "./target.js";
@@ -123,7 +123,6 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
     const to = c.req.query("to") as CurrencyCode;
     const amount = c.req.query("amount") ?? "";
     if (!(await enabled(from)) || !(await enabled(to))) throw new Error("pick two of the currencies we change today");
-    if (!CURRENCIES[from].payIn) throw new Error(`${CURRENCIES[from].label} can be received but not paid with yet`);
     if (!/^\d+(\.\d{1,18})?$/.test(amount)) throw new Error("enter an amount");
     const amountIn = parseUnits(amount, CURRENCIES[from].decimals);
     if (amountIn === 0n) throw new Error("enter an amount");
@@ -162,7 +161,6 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
     const body = payQuote.parse(await c.req.json());
     if (!(await enabled(body.from))) throw new Error("pay with one of the currencies we change today");
     const from = body.from as CurrencyCode;
-    if (!CURRENCIES[from].payIn) throw new Error(`${CURRENCIES[from].label} can be received but not paid with yet`);
     const url = new URL(body.url);
     if (url.protocol !== "https:") throw new Error("only https services can be paid");
     if (url.host === new URL(cfg.publicUrl).host) throw new Error("that is Cruce itself");
@@ -232,6 +230,34 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
 
   // The page that was paying may have lost its connection mid-run; anyone with the link can nudge
   // the order forward. Harmless to repeat: a running order is skipped and a finished one untouched.
+  // Paying with a plain token transfer, for currencies Celo's x402 facilitator doesn't settle. The
+  // transfer carries the order id in its calldata; the agent reads it back and runs the order.
+  const directBody = z.object({ tx: z.string().regex(/^0x[0-9a-fA-F]{64}$/) });
+  app.post("/api/orders/:id/paid", async (c) => {
+    await limit(`paid:${ip(c)}`, 120, 60_000);
+    const order = await loadOrder(c);
+    const { tx } = directBody.parse(await c.req.json());
+    if (order.status !== "awaiting_payment") {
+      if (order.paidTx === tx) return c.json({ order: publicOrder(order) });
+      throw new HttpError(409, "this order is already paid");
+    }
+    const check = await checkDirect(chain, order, tx as Hex);
+    if (check.state === "pending") return c.json({ waiting: true }, 202);
+    if (check.state === "invalid") throw new Error(check.reason);
+    if (check.state === "short") {
+      // Money arrived but not enough: it goes back rather than running a smaller order.
+      await store.addOrphan({ orderId: order.id, payer: check.payer, currency: order.from, amount: check.amount, tx, reason: "short_transfer" });
+      throw new HttpError(409, "that transfer was less than the order, so it's being sent back");
+    }
+    const outcome = await applyPayment(store, order, { payer: check.payer, currency: order.from, amount: order.amountIn, tx });
+    if (outcome !== "applied" && outcome !== "duplicate") throw new HttpError(409, "this order is already paid");
+    // Anything paid above the order goes back with the change.
+    const extra = BigInt(check.amount) - BigInt(order.amountIn);
+    if (extra > 0n) await store.addOrphan({ orderId: order.id, payer: check.payer, currency: order.from, amount: extra.toString(), tx: `${tx}:extra`, reason: "overpaid" });
+    const after = await engine.run(order.id);
+    return c.json({ order: publicOrder(after ?? order) });
+  });
+
   app.post("/api/orders/:id/resume", async (c) => {
     await limit(`resume:${ip(c)}`, 30, 60_000);
     const order = await loadOrder(c);

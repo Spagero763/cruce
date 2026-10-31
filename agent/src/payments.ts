@@ -125,3 +125,29 @@ export function createPayments(cfg: Config, store: Store, chain: Chain, engine: 
 
   return { server, routes };
 }
+
+export type Direct =
+  | { state: "pending" }
+  | { state: "invalid"; reason: string }
+  | { state: "short"; payer: string; amount: string }
+  | { state: "paid"; payer: string; amount: string };
+
+/**
+ * Checks a plain token transfer to the agent as payment for an order. It counts only when the
+ * transaction's calldata ends with the order id, so a transfer made for one order can never be
+ * claimed by another, whoever submits its hash.
+ */
+export async function checkDirect(chain: Pick<Chain, "pub" | "received">, order: Order, hash: Hex): Promise<Direct> {
+  const tx = await chain.pub.getTransaction({ hash }).catch(() => null);
+  if (!tx) return { state: "pending" };
+  const token = CURRENCIES[order.from].address.toLowerCase();
+  if (tx.to?.toLowerCase() !== token) return { state: "invalid", reason: "that transaction isn't a transfer of the currency this order is paid in" };
+  if (!tx.input.toLowerCase().endsWith(order.id.slice(2).toLowerCase())) return { state: "invalid", reason: "that transfer wasn't made for this order" };
+  const receipt = await chain.pub.getTransactionReceipt({ hash }).catch(() => null);
+  if (!receipt) return { state: "pending" };
+  if (receipt.status !== "success") return { state: "invalid", reason: "that transfer failed on-chain" };
+  const got = chain.received(receipt, order.from);
+  const payer = tx.from.toLowerCase();
+  if (got.amount < BigInt(order.amountIn)) return { state: "short", payer, amount: got.amount.toString() };
+  return { state: "paid", payer, amount: got.amount.toString() };
+}

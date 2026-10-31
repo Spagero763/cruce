@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { erc20Abi } from "viem";
 import { Crossing } from "../components/Crossing";
 import { Loading } from "../components/Loading";
 import { Magnetic, Arrow } from "../components/Magnetic";
@@ -28,6 +29,7 @@ export function Order() {
   const [copied, setCopied] = useState(false);
   const [left, setLeft] = useState(0);
   const [nudged, setNudged] = useState(0);
+  const [held, setHeld] = useState<bigint | null>(null);
   const root = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -42,6 +44,22 @@ export function Order() {
 
   const order = state?.order;
   const running = order ? RUNNING.has(order.status) : false;
+
+  // What the connected wallet holds of the currency being paid, read before asking for a signature,
+  // so a wallet without enough on Celo is told how much is missing instead of failing at payment.
+  useEffect(() => {
+    if (!wallet.address || !state || state.order.status !== "awaiting_payment") return setHeld(null);
+    let live = true;
+    const token = state.config.currencies.find((c) => c.code === state.order.from)!.address;
+    void wallet
+      .clients()
+      .then(({ pub, address }) => pub.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [address] }))
+      .then((b) => live && setHeld(b))
+      .catch(() => live && setHeld(null));
+    return () => {
+      live = false;
+    };
+  }, [wallet, wallet.address, state]);
 
   // While the agent works, the page follows along. A stalled order gets a nudge.
   useEffect(() => {
@@ -80,6 +98,7 @@ export function Order() {
   const f = cur(order.from);
   const tc = cur(order.to);
   const expired = order.status === "awaiting_payment" && left === 0 && state.payUntil !== null;
+  const short = held !== null && held < BigInt(order.amountIn) ? BigInt(order.amountIn) - held : null;
 
   async function pay() {
     if (!order) return;
@@ -87,9 +106,13 @@ export function Order() {
     setPaying(true);
     try {
       const clients = await wallet.clients();
-      const { payOrder } = await import("../lib/pay");
-      const res = await payOrder({ payUrl: payUrlFor(order.id), order, config, ...clients });
-      if (res.order) setState((s) => (s ? { ...s, order: res.order! } : s));
+      const { payOrder, payByTransfer } = await import("../lib/pay");
+      if (f.payIn === false) {
+        await payByTransfer({ order, config, ...clients, report: (tx) => api.paid(order.id, tx) });
+      } else {
+        const res = await payOrder({ payUrl: payUrlFor(order.id), order, config, ...clients });
+        if (res.order) setState((s) => (s ? { ...s, order: res.order! } : s));
+      }
       await load();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
@@ -200,13 +223,14 @@ export function Order() {
               </div>
             ) : (
               <div className="order-action o-reveal">
-                <Magnetic onClick={() => void (wallet.address ? pay() : wallet.connect().then(() => pay()).catch(() => {}))} disabled={paying || !wallet.canConnect}>
+                <Magnetic onClick={() => void (wallet.address ? pay() : wallet.connect().then(() => pay()).catch(() => {}))} disabled={paying || !wallet.canConnect || short !== null}>
                   {paying ? t("order.paying") : wallet.address || wallet.isMiniPay ? t("order.pay", { amount: money(order.amountIn, f) }) : t("cv.connect")}
                 </Magnetic>
                 <p className="order-fine mono">
-                  {wallet.canConnect ? t("order.gasless") : t("order.noWallet")} · {left}s
+                  {wallet.canConnect ? (f.payIn === false ? t("order.transfer") : t("order.gasless")) : t("order.noWallet")} · {left}s
                 </p>
                 <p className="order-fine">{t("order.guaranteed", { min: money(order.minOut, tc) })}</p>
+                {short !== null && <p className="order-note order-note--problem">{t("order.short", { have: money(held!, f), need: money(short, f) })}</p>}
               </div>
             )}
             {error && <p className="form-error">{error}</p>}

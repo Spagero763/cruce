@@ -111,13 +111,12 @@ export function Converter({ config, start = {}, className = "", onQuote }: { con
       setFrom(code);
       if (amount === (DEFAULT_AMOUNT[from] ?? "")) setAmount(DEFAULT_AMOUNT[code] ?? "50");
     } else {
-      if (code === from) setFrom(tc.payIn === false ? "USDT" : to);
+      if (code === from) setFrom(to);
       setTo(code);
     }
   };
 
   const flip = () => {
-    if (tc.payIn === false) return;
     const nextAmount = quote ? trimmed(quote.quote.display.out, tc) : (DEFAULT_AMOUNT[to] ?? "50");
     setFrom(to);
     setTo(from);
@@ -179,7 +178,7 @@ export function Converter({ config, start = {}, className = "", onQuote }: { con
             ))}
           </div>
         )}
-        <FlagRail code={from} currencies={config.currencies.filter((c) => c.payIn !== false)} onPick={(c) => pick("from", c)} soon={t("cv.soon")} />
+        <FlagRail code={from} currencies={config.currencies} onPick={(c) => pick("from", c)} soon={t("cv.soon")} />
       </div>
 
       <div className="cv-mid">

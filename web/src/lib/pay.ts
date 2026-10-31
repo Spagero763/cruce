@@ -43,6 +43,26 @@ async function onServerClock<T>(offset: number, fn: () => Promise<T>): Promise<T
   }
 }
 
+/**
+ * Pays with a plain token transfer, for currencies Celo's x402 facilitator doesn't settle. The
+ * order id rides at the end of the calldata, so the transfer can only ever pay this order.
+ */
+export async function payByTransfer(opts: { order: Order; config: AppConfig; wallet: WalletClient; pub: PublicClient; address: Address; report: (tx: string) => Promise<boolean> }): Promise<string> {
+  const { order, config, wallet, pub, address } = opts;
+  const currency = config.currencies.find((c) => c.code === order.from);
+  if (!currency) throw new Error("unsupported currency");
+  const { encodeFunctionData, erc20Abi } = await import("viem");
+  const data = (encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [config.agent, BigInt(order.amountIn)] }) + order.id.slice(2)) as `0x${string}`;
+  const hash = await wallet.sendTransaction({ account: wallet.account ?? address, chain: wallet.chain, to: currency.address, data } as never);
+  await pub.waitForTransactionReceipt({ hash });
+  // The agent may see the receipt a moment after the wallet does, so it is asked a few times.
+  for (let i = 0; i < 20; i++) {
+    if (await opts.report(hash)) return hash;
+    await new Promise((r) => setTimeout(r, 2_000));
+  }
+  return hash;
+}
+
 /** One signature, settled by Celo's facilitator. The payer pays no gas. */
 export async function payOrder(opts: {
   payUrl: string;
