@@ -12,7 +12,7 @@
     "venues": "tsx scripts/venues.ts",
     "swap-check": "tsx --env-file-if-exists=.env scripts/swap-check.ts",
     "live-check": "tsx --env-file-if-exists=.env scripts/live-check.ts",
-    "identity": "tsx --env-file-if-exists=.env scripts/register-identity.ts",
+    "identity": "tsx --env-file-if-exists=.env scripts/update-identity.ts",
     "pay-check": "tsx --env-file-if-exists=.env scripts/pay-check.ts"
   },
   "dependencies": {
