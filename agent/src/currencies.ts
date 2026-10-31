@@ -62,7 +62,7 @@ export const CURRENCIES = {
   IDRX: {
     code: "IDRX", label: "IDRX", fiat: "IDR", locale: "id-ID", country: "ID",
     address: "0x18Bc5bcC660cf2B9cE3cd51a404aFe1a0cBD3C22", decimals: 2, method: "eip3009",
-    domain: { name: "IDRX", version: "1" }, kind: "local", enabled: true, payIn: false,
+    domain: { name: "IDRX", version: "1" }, kind: "local", enabled: false, payIn: false,
   },
   USDm: {
     code: "USDm", label: "USDm", fiat: "USD", locale: "en-US", country: "US",
