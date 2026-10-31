@@ -84,7 +84,7 @@ const order = await cruce.pay(q, { wallet, recipient: "0x…" });
 const final = await cruce.wait(order.id);
 ```
 
-Or a link: `https://cruce.vercel.app/?from=wARS&to=wBRL&amount=50000&ref=your-code`. The partner
+Or a link: `https://cruce-phi.vercel.app/?from=wARS&to=wBRL&amount=50000&ref=your-code`. The partner
 code is registered with one signature on the Developers page and its payout address receives a
 third of the fee with every order that carries it.
 

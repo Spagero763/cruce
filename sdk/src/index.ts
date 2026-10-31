@@ -81,7 +81,7 @@ export class Cruce {
   private config: Promise<Config> | null = null;
 
   constructor(opts: { partner?: string | null; baseUrl?: string } = {}) {
-    this.base = (opts.baseUrl ?? "https://cruce.vercel.app").replace(/\/$/, "");
+    this.base = (opts.baseUrl ?? "https://cruce-phi.vercel.app").replace(/\/$/, "");
     this.partner = opts.partner ?? null;
   }
 
