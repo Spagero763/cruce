@@ -19,7 +19,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
     "viem": "^2"
@@ -32,5 +33,23 @@
     "@x402/core": "2.28.0",
     "@x402/evm": "2.28.0",
     "@x402/fetch": "2.28.0"
-  }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Spagero763/cruce.git",
+    "directory": "sdk"
+  },
+  "homepage": "https://cruce-phi.vercel.app/developers",
+  "keywords": [
+    "celo",
+    "x402",
+    "fx",
+    "stablecoin",
+    "wfiat",
+    "cngn",
+    "agent"
+  ]
 }
