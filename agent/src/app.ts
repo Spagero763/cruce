@@ -225,7 +225,9 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
     c.header("cache-control", "no-store");
     const order = await loadOrder(c);
     const quote = order.status === "awaiting_payment" ? await store.quote(order.quoteId) : null;
-    return c.json({ order: publicOrder(order), events: timeline(await store.events(order.id)), payUntil: quote ? quote.expiresAt + PAY_GRACE_MS : null });
+    // When the gasless rail is refusing to settle, the page pays by a plain transfer instead.
+    const transfer = order.status === "awaiting_payment" && (await store.gaslessDown(Date.now() - 15 * 60_000));
+    return c.json({ order: publicOrder(order), events: timeline(await store.events(order.id)), payUntil: quote ? quote.expiresAt + PAY_GRACE_MS : null, transfer });
   });
 
   // The page that was paying may have lost its connection mid-run; anyone with the link can nudge

@@ -139,7 +139,7 @@ export const api = {
     req<{ quote: Quote; compare: Compare | null }>(`/api/quote?${new URLSearchParams({ from, to, amount, ...(partner ? { partner } : {}) })}`, { signal }),
   createOrder: (quoteId: string, recipient?: string) =>
     req<{ order: Order; payUrl: string; expiresAt: number }>("/api/orders", { method: "POST", body: JSON.stringify({ quoteId, recipient }) }),
-  order: (id: string) => req<{ order: Order; events: OrderEvent[]; payUntil: number | null }>(`/api/orders/${id}`),
+  order: (id: string) => req<{ order: Order; events: OrderEvent[]; payUntil: number | null; transfer?: boolean }>(`/api/orders/${id}`),
   resume: (id: string) => req<{ order: Order }>(`/api/orders/${id}/resume`, { method: "POST" }),
   paid: async (id: string, tx: string) => {
     const res = await fetch(`${BASE}/api/orders/${id}/paid`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tx }) });

@@ -491,6 +491,12 @@ export class Store {
     ]);
   }
 
+  /** True when the facilitator lately refused to settle for lack of funds: nothing moved, and it will refuse again. */
+  async gaslessDown(since: number): Promise<boolean> {
+    const rows = await this.db.query("select 1 from events where kind = 'payment_refused' and at > $1 and detail->>'reason' ilike '%settlement funds%' limit 1", [since]);
+    return rows.length > 0;
+  }
+
   async events(orderId: string): Promise<OrderEvent[]> {
     const rows = await this.db.query("select * from events where order_id = $1 order by id asc", [orderId]);
     return rows.map((r) => ({

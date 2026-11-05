@@ -92,6 +92,17 @@ describe("store", () => {
 });
 
 describe("small pieces", () => {
+  it("knows when the gasless rail lately refused for lack of funds", async () => {
+    const s = await memoryStore();
+    const o = await s.createOrder(await s.createQuote(quote), ID, null);
+    expect(await s.gaslessDown(Date.now() - 60_000)).toBe(false);
+    await s.addEvent(o.id, "payment_refused", { stage: "verify", reason: "insufficient_funds" });
+    expect(await s.gaslessDown(Date.now() - 60_000)).toBe(false);
+    await s.addEvent(o.id, "payment_refused", { stage: "settle", reason: "unknown reason: Out of mainnet settlement funds (this settlement costs 1625 micro-USD)." });
+    expect(await s.gaslessDown(Date.now() - 60_000)).toBe(true);
+    expect(await s.gaslessDown(Date.now() + 60_000)).toBe(false);
+  });
+
   it("reads the order id only from a well-formed pay path", () => {
     expect(orderIdFromPath(`/x402/orders/${ID}/pay`)).toBe(ID);
     expect(orderIdFromPath("/x402/orders/nope/pay")).toBeNull();

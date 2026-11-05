@@ -21,7 +21,7 @@ export function Order() {
   const { t, locale } = useI18n();
   const wallet = useWallet();
   const navigate = useNavigate();
-  const [state, setState] = useState<{ order: OrderT; payUntil: number | null; config: AppConfig } | null>(null);
+  const [state, setState] = useState<{ order: OrderT; payUntil: number | null; config: AppConfig; transfer: boolean } | null>(null);
   const [missing, setMissing] = useState(false);
   const [paying, setPaying] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -33,8 +33,8 @@ export function Order() {
   const root = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
-    const [{ order, payUntil }, config] = await Promise.all([api.order(id), api.config()]);
-    setState({ order, payUntil, config });
+    const [{ order, payUntil, transfer }, config] = await Promise.all([api.order(id), api.config()]);
+    setState({ order, payUntil, config, transfer: Boolean(transfer) });
     return order;
   }, [id]);
 
@@ -99,6 +99,7 @@ export function Order() {
   const tc = cur(order.to);
   const expired = order.status === "awaiting_payment" && left === 0 && state.payUntil !== null;
   const short = held !== null && held < BigInt(order.amountIn) ? BigInt(order.amountIn) - held : null;
+  const direct = f.payIn === false || state.transfer;
 
   async function pay() {
     if (!order) return;
@@ -107,16 +108,25 @@ export function Order() {
     try {
       const clients = await wallet.clients();
       const { payOrder, payByTransfer } = await import("../lib/pay");
-      if (f.payIn === false) {
-        await payByTransfer({ order, config, ...clients, report: (tx) => api.paid(order.id, tx) });
+      const transfer = () => payByTransfer({ order, config, ...clients, dollarFees: wallet.isMiniPay, report: (tx) => api.paid(order.id, tx) });
+      if (direct) {
+        await transfer();
       } else {
-        const res = await payOrder({ payUrl: payUrlFor(order.id), order, config, ...clients });
-        if (res.order) setState((s) => (s ? { ...s, order: res.order! } : s));
+        try {
+          const res = await payOrder({ payUrl: payUrlFor(order.id), order, config, ...clients });
+          if (res.order) setState((s) => (s ? { ...s, order: res.order! } : s));
+        } catch (e) {
+          // The gasless rail refused before any money moved: the same order is paid by a transfer.
+          const now = await api.order(order.id).catch(() => null);
+          if (!now?.transfer || now.order.status !== "awaiting_payment") throw e;
+          setState((s) => (s ? { ...s, transfer: true } : s));
+          await transfer();
+        }
       }
       await load();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
-      if (!/reject|denied|cancelled/i.test(msg)) setError(msg === "no-wallet" ? t("order.noWallet") : msg || t("error.generic"));
+      if (!/reject|denied|cancelled/i.test(msg)) setError(msg === "no-wallet" ? t("order.noWallet") : /^Payment failed|unexpected_error|unknown reason/i.test(msg) ? t("order.refused") : msg || t("error.generic"));
       await load().catch(() => {});
     } finally {
       setPaying(false);
@@ -227,7 +237,7 @@ export function Order() {
                   {paying ? t("order.paying") : wallet.address || wallet.isMiniPay ? t("order.pay", { amount: money(order.amountIn, f) }) : t("cv.connect")}
                 </Magnetic>
                 <p className="order-fine mono">
-                  {wallet.canConnect ? (f.payIn === false ? t("order.transfer") : t("order.gasless")) : t("order.noWallet")} · {left}s
+                  {wallet.canConnect ? (direct ? t("order.transfer") : t("order.gasless")) : t("order.noWallet")} · {left}s
                 </p>
                 <p className="order-fine">{t("order.guaranteed", { min: money(order.minOut, tc) })}</p>
                 {short !== null && <p className="order-note order-note--problem">{t("order.short", { have: money(held!, f), need: money(short, f) })}</p>}
