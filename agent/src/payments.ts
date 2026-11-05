@@ -45,13 +45,84 @@ export async function applyPayment(store: Store, order: Order | null, s: Settled
   return "applied";
 }
 
+type Refusal = { stage: "verify" | "settle"; orderId: Hex | null; payer: string | null; reason: string; details: string | null };
+
+/**
+ * The facilitator answers a refused payment with a one-word reason; the sentence that says what
+ * actually reverted rides in a field the client library drops. A refusal is asked about once more,
+ * raw, so the order keeps the full answer. Verifying moves no money, so asking twice is safe.
+ */
+class ExplainedFacilitator extends HTTPFacilitatorClient {
+  constructor(
+    private cfg: Config,
+    private note: (r: Refusal) => Promise<void>,
+  ) {
+    super({
+      url: cfg.facilitatorUrl,
+      createAuthHeaders: async () => {
+        const h: Record<string, string> = cfg.x402ApiKey ? { "X-API-Key": cfg.x402ApiKey } : {};
+        return { verify: h, settle: h, supported: h };
+      },
+    });
+  }
+
+  private who(payload: { resource?: { url?: string }; payload?: unknown }) {
+    const p = payload.payload as { authorization?: { from?: string }; permit2Authorization?: { from?: string } } | undefined;
+    let orderId: Hex | null = null;
+    try {
+      orderId = orderIdFromPath(new URL(payload.resource?.url ?? "").pathname);
+    } catch {
+      // no resource on the payload
+    }
+    return { orderId, payer: p?.authorization?.from ?? p?.permit2Authorization?.from ?? null };
+  }
+
+  private async why(payload: unknown, requirements: unknown): Promise<string | null> {
+    try {
+      const res = await fetch(`${this.cfg.facilitatorUrl}/verify`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...(this.cfg.x402ApiKey ? { "X-API-Key": this.cfg.x402ApiKey } : {}) },
+        body: JSON.stringify({ x402Version: (payload as { x402Version?: number }).x402Version ?? 2, paymentPayload: payload, paymentRequirements: requirements }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      return (await res.text()).slice(0, 1200);
+    } catch {
+      return null;
+    }
+  }
+
+  override async verify(...args: Parameters<HTTPFacilitatorClient["verify"]>) {
+    const [payload, requirements] = args;
+    const refused = async (reason: string) => this.note({ stage: "verify", ...this.who(payload as never), reason, details: await this.why(payload, requirements) }).catch(() => {});
+    try {
+      const res = await super.verify(...args);
+      if (!res.isValid) await refused(res.invalidReason ?? "invalid");
+      return res;
+    } catch (err) {
+      await refused(err instanceof Error ? err.message : String(err));
+      throw err;
+    }
+  }
+
+  override async settle(...args: Parameters<HTTPFacilitatorClient["settle"]>) {
+    const [payload] = args;
+    const refused = (reason: string, details: string | null) => this.note({ stage: "settle", ...this.who(payload as never), reason, details }).catch(() => {});
+    try {
+      const res = await super.settle(...args);
+      if (!res.success) await refused(res.errorReason ?? "failed", res.errorMessage ?? null);
+      return res;
+    } catch (err) {
+      const e = err as { errorReason?: string; errorMessage?: string; transaction?: string; message?: string };
+      await refused(e.errorReason ?? e.message ?? String(err), [e.errorMessage, e.transaction].filter(Boolean).join(" ") || null);
+      throw err;
+    }
+  }
+}
+
 export function createPayments(cfg: Config, store: Store, chain: Chain, engine: Engine) {
-  const facilitator = new HTTPFacilitatorClient({
-    url: cfg.facilitatorUrl,
-    createAuthHeaders: async () => {
-      const h: Record<string, string> = cfg.x402ApiKey ? { "X-API-Key": cfg.x402ApiKey } : {};
-      return { verify: h, settle: h, supported: h };
-    },
+  const facilitator = new ExplainedFacilitator(cfg, async (r) => {
+    console.error("[x402] payment refused", JSON.stringify(r));
+    if (r.orderId && (await store.order(r.orderId))) await store.addEvent(r.orderId, "payment_refused", { stage: r.stage, payer: r.payer, reason: r.reason, details: r.details });
   });
 
   const server = new x402ResourceServer(facilitator).register(cfg.caip2, new ExactEvmScheme());
