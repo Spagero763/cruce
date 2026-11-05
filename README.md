@@ -51,7 +51,7 @@ run       leg 1   wARS -> USD₮   on the venue that quoted best, re-priced at f
   doesn't settle, is paid by a plain transfer whose calldata ends with the order id, so it can only
   ever pay that order. The same transfer is the fallback for every currency whenever the facilitator
   refuses to settle: the refusal is recorded on the order with its full reason, and the page switches
-  rails on its own. In MiniPay the transfer's fee is paid in a dollar the wallet already holds.
+  rails on its own.
 - **Reference rates.** Official rates from public feeds, the Argentine ladder (oficial, blue, cripto)
   from its own API, and the street boards for Argentina and Nigeria read through a rented browser on
   [buy](https://usebuy.ai) with a language model parsing the page. A quote more than 8% from the

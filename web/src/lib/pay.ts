@@ -47,31 +47,13 @@ async function onServerClock<T>(offset: number, fn: () => Promise<T>): Promise<T
  * Pays with a plain token transfer, for currencies Celo's x402 facilitator doesn't settle. The
  * order id rides at the end of the calldata, so the transfer can only ever pay this order.
  */
-// Dollars a wallet can pay Celo's network fee in, with the address the network expects for each.
-const FEE_DOLLARS: { token: Address; fee: Address; unit: bigint }[] = [
-  { token: "0x765DE816845861e75A25fCA122bb6898B8B1282a", fee: "0x765DE816845861e75A25fCA122bb6898B8B1282a", unit: 10n ** 18n },
-  { token: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C", fee: "0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B", unit: 10n ** 6n },
-  { token: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e", fee: "0x0E2A3e05bc9A16F5292A6170456A710cb89C6f72", unit: 10n ** 6n },
-];
-
-/** MiniPay wallets hold no CELO: the fee is paid in a dollar the wallet has, ten cents being plenty. */
-async function feeDollar(pub: PublicClient, address: Address): Promise<Address | undefined> {
-  const { erc20Abi } = await import("viem");
-  for (const d of FEE_DOLLARS) {
-    const held = await pub.readContract({ address: d.token, abi: erc20Abi, functionName: "balanceOf", args: [address] }).catch(() => 0n);
-    if (held >= d.unit / 10n) return d.fee;
-  }
-  return undefined;
-}
-
-export async function payByTransfer(opts: { order: Order; config: AppConfig; wallet: WalletClient; pub: PublicClient; address: Address; dollarFees?: boolean; report: (tx: string) => Promise<boolean> }): Promise<string> {
+export async function payByTransfer(opts: { order: Order; config: AppConfig; wallet: WalletClient; pub: PublicClient; address: Address; report: (tx: string) => Promise<boolean> }): Promise<string> {
   const { order, config, wallet, pub, address } = opts;
   const currency = config.currencies.find((c) => c.code === order.from);
   if (!currency) throw new Error("unsupported currency");
   const { encodeFunctionData, erc20Abi } = await import("viem");
-  const feeCurrency = opts.dollarFees ? await feeDollar(pub, address) : undefined;
   const data = (encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [config.agent, BigInt(order.amountIn)] }) + order.id.slice(2)) as `0x${string}`;
-  const hash = await wallet.sendTransaction({ account: wallet.account ?? address, chain: wallet.chain, to: currency.address, data, ...(feeCurrency ? { feeCurrency } : {}) } as never);
+  const hash = await wallet.sendTransaction({ account: wallet.account ?? address, chain: wallet.chain, to: currency.address, data } as never);
   await pub.waitForTransactionReceipt({ hash });
   // The agent may see the receipt a moment after the wallet does, so it is asked a few times.
   for (let i = 0; i < 20; i++) {

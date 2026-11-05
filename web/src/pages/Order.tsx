@@ -108,7 +108,7 @@ export function Order() {
     try {
       const clients = await wallet.clients();
       const { payOrder, payByTransfer } = await import("../lib/pay");
-      const transfer = () => payByTransfer({ order, config, ...clients, dollarFees: wallet.isMiniPay, report: (tx) => api.paid(order.id, tx) });
+      const transfer = () => payByTransfer({ order, config, ...clients, report: (tx) => api.paid(order.id, tx) });
       if (direct) {
         await transfer();
       } else {
