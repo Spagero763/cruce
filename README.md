@@ -16,13 +16,13 @@ price move in between. Off-chain the casa de cambio takes 5 to 10% for the same 
 street rate is whatever the person behind the counter says it is.
 
 Cruce is the money changer that lives on the internet. Say what you hold and what you need. An
-agent prices every hop on Textile and Uniswap, takes the better one for each, sells what you paid,
+agent prices every hop on Textile, Uniswap and Mento, takes the better one for each, sells what you paid,
 holds dollars for a few seconds, buys what you asked for, and sends it where you say. You sign
 once. No gas, no account, no counter.
 
 | | |
 |---|---|
-| **People** | Change wARS, wBRL, wCOP, cNGN, USA₮, USD₮ or USDC into each other, or into Indonesian rupiah (IDRX) and Mento's dollar (USDm). Those two are receive only, since Celo's x402 facilitator doesn't settle them yet from MiniPay, MetaMask, Rainbow, or an email sign-in that makes a wallet for you. The quote shows an estimate and a minimum. Under the minimum, you are refunded, not short-changed. |
+| **People** | Change wARS, wBRL, wCOP, cNGN, USA₮, USD₮, USDC or Mento's dollar (USDm) into each other: 56 pairs, from MiniPay, MetaMask, Rainbow, or an email sign-in that makes a wallet for you. Indonesian rupiah (IDRX) and the Mexican, Chilean and Peruvian pesos switch on by themselves when a venue quotes them both ways. The quote shows an estimate and a minimum. Under the minimum, you are refunded, not short-changed. |
 | **Builders** | One call quotes, one payment settles. Any conversion that carries your partner code pays you a third of the fee, on-chain, with the order itself. An npm package and a link that pays you. |
 | **The agent** | Holds nothing between orders and no contract holds a balance. Every leg is a public transaction on Celo, tagged, from one wallet. |
 | **Languages** | English, Español, Português. |
@@ -47,7 +47,11 @@ run       leg 1   wARS -> USD₮   on the venue that quoted best, re-priced at f
   output wins. At fill time the leg is priced again; if the quoted venue has gone quiet the others
   are tried, and if nothing reaches the minimum the order is refunded.
 - **Payment.** x402 over Celo's facilitator: EIP-3009 for the dollar tokens, Permit2 with a sponsored
-  approval for the pesos, reais and naira. The payer never needs CELO.
+  approval for the pesos, reais and naira. The payer never needs CELO. USDm, which the facilitator
+  doesn't settle, is paid by a plain transfer whose calldata ends with the order id, so it can only
+  ever pay that order. The same transfer is the fallback for every currency whenever the facilitator
+  refuses to settle: the refusal is recorded on the order with its full reason, and the page switches
+  rails on its own. In MiniPay the transfer's fee is paid in a dollar the wallet already holds.
 - **Reference rates.** Official rates from public feeds, the Argentine ladder (oficial, blue, cripto)
   from its own API, and the street boards for Argentina and Nigeria read through a rented browser on
   [buy](https://usebuy.ai) with a language model parsing the page. A quote more than 8% from the
@@ -116,7 +120,7 @@ third of the fee with every order that carries it.
 
 ```
 npm install
-npm test                       # router, engine, paying services, store: 34 tests on an in-process Postgres
+npm test                       # router, engine, paying services, direct transfers, store: 41 tests on an in-process Postgres
 npm run venues -w @cruce/agent # what the venues quote right now, read-only
 npm run preview -w @cruce/agent && npm run dev -w @cruce/web
 ```
