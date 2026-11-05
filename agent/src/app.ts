@@ -226,7 +226,7 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
     const order = await loadOrder(c);
     const quote = order.status === "awaiting_payment" ? await store.quote(order.quoteId) : null;
     // When the gasless rail is refusing to settle, the page pays by a plain transfer instead.
-    const transfer = order.status === "awaiting_payment" && (await store.gaslessDown(Date.now() - 15 * 60_000));
+    const transfer = order.status === "awaiting_payment" && (await store.gaslessDown(Date.now() - 30 * 60_000));
     return c.json({ order: publicOrder(order), events: timeline(await store.events(order.id)), payUntil: quote ? quote.expiresAt + PAY_GRACE_MS : null, transfer });
   });
 
