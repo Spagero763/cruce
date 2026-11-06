@@ -117,8 +117,10 @@ export function Order() {
           if (res.order) setState((s) => (s ? { ...s, order: res.order! } : s));
         } catch (e) {
           // The gasless rail refused before any money moved: the same order is paid by a transfer.
+          // A token without permit (cNGN) can't be sponsored at all unless Permit2 is already approved.
+          const noPermit = e instanceof Error && /"nonces" reverted/.test(e.message);
           const now = await api.order(order.id).catch(() => null);
-          if (!now?.transfer || now.order.status !== "awaiting_payment") throw e;
+          if (!now || now.order.status !== "awaiting_payment" || !(now.transfer || noPermit)) throw e;
           setState((s) => (s ? { ...s, transfer: true } : s));
           await transfer();
         }
