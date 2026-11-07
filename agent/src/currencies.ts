@@ -20,6 +20,11 @@ export interface Currency {
   enabled: boolean;
   /** Whether Celo's x402 facilitator settles payments in it. Some can only be received. */
   payIn: boolean;
+  /**
+   * False when the token has no EIP-2612 permit, so the facilitator can't sponsor its Permit2
+   * approval: a wallet that never approved Permit2 pays it by a plain transfer instead.
+   */
+  permit?: false;
 }
 
 // Celo mainnet. Match on address, never on symbol.
@@ -57,7 +62,7 @@ export const CURRENCIES = {
   cNGN: {
     code: "cNGN", label: "cNGN", fiat: "NGN", locale: "en-NG", country: "NG",
     address: "0xF6829D7393dAe24509eb1E52eE8e572e2E271a4f", decimals: 6, method: "permit2",
-    domain: { name: "cNGN", version: "1" }, kind: "local", enabled: true, payIn: true,
+    domain: { name: "cNGN", version: "1" }, kind: "local", enabled: true, payIn: true, permit: false,
   },
   IDRX: {
     code: "IDRX", label: "IDRX", fiat: "IDR", locale: "id-ID", country: "ID",

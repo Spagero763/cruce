@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Magnetic } from "../components/Magnetic";
 import { api, type AppConfig, type Partner } from "../lib/api";
+import { explain } from "../lib/explain";
 import { usd } from "../lib/format";
 import { useI18n } from "../lib/i18n";
 import { gsap, prefersReducedMotion, useGSAP } from "../lib/motion";
@@ -66,8 +67,7 @@ export function Developers() {
       setName("");
       await loadPartners();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "";
-      if (!/reject|denied|cancelled/i.test(msg)) setError(msg || t("error.generic"));
+      setError(explain(e, t));
     } finally {
       setBusy(false);
     }

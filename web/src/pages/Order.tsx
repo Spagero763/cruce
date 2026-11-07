@@ -6,6 +6,7 @@ import { Loading } from "../components/Loading";
 import { Magnetic, Arrow } from "../components/Magnetic";
 import { Rail, type Stop } from "../components/Rail";
 import { api, payUrlFor, type AppConfig, type Order as OrderT } from "../lib/api";
+import { explain } from "../lib/explain";
 import { money, shortAddress } from "../lib/format";
 import { useI18n, type Key } from "../lib/i18n";
 import { gsap, prefersReducedMotion, useGSAP } from "../lib/motion";
@@ -15,6 +16,7 @@ import "./app.css";
 
 const RUNNING = new Set(["paid", "swapping", "paying_out"]);
 const PROBLEM = new Set(["refunding", "refunded", "attention"]);
+const PERMIT2 = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
 
 export function Order() {
   const { id = "" } = useParams();
@@ -30,6 +32,8 @@ export function Order() {
   const [left, setLeft] = useState(0);
   const [nudged, setNudged] = useState(0);
   const [held, setHeld] = useState<bigint | null>(null);
+  const [celo, setCelo] = useState<bigint | null>(null);
+  const [noPermit, setNoPermit] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -45,17 +49,30 @@ export function Order() {
   const order = state?.order;
   const running = order ? RUNNING.has(order.status) : false;
 
-  // What the connected wallet holds of the currency being paid, read before asking for a signature,
-  // so a wallet without enough on Celo is told how much is missing instead of failing at payment.
+  // What the connected wallet holds, read before asking for a signature: the currency being paid,
+  // so a wallet short on Celo is told how much is missing instead of failing at payment; CELO, so a
+  // transfer that needs a network fee is announced rather than failing in the wallet; and, for a
+  // token the facilitator can't sponsor, whether Permit2 was ever approved, which decides the rail.
   useEffect(() => {
-    if (!wallet.address || !state || state.order.status !== "awaiting_payment") return setHeld(null);
+    if (!wallet.address || !state || state.order.status !== "awaiting_payment") {
+      setHeld(null);
+      setCelo(null);
+      setNoPermit(false);
+      return;
+    }
     let live = true;
-    const token = state.config.currencies.find((c) => c.code === state.order.from)!.address;
-    void wallet
-      .clients()
-      .then(({ pub, address }) => pub.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [address] }))
-      .then((b) => live && setHeld(b))
-      .catch(() => live && setHeld(null));
+    const from = state.config.currencies.find((c) => c.code === state.order.from)!;
+    void wallet.clients().then(async ({ pub, address }) => {
+      const [balance, native, allowance] = await Promise.all([
+        pub.readContract({ address: from.address, abi: erc20Abi, functionName: "balanceOf", args: [address] }).catch(() => null),
+        pub.getBalance({ address }).catch(() => null),
+        from.permit === false ? pub.readContract({ address: from.address, abi: erc20Abi, functionName: "allowance", args: [address, PERMIT2] }).catch(() => 0n) : null,
+      ]);
+      if (!live) return;
+      setHeld(balance);
+      setCelo(native);
+      setNoPermit(allowance !== null && allowance < BigInt(state.order.amountIn));
+    });
     return () => {
       live = false;
     };
@@ -99,7 +116,9 @@ export function Order() {
   const tc = cur(order.to);
   const expired = order.status === "awaiting_payment" && left === 0 && state.payUntil !== null;
   const short = held !== null && held < BigInt(order.amountIn) ? BigInt(order.amountIn) - held : null;
-  const direct = f.payIn === false || state.transfer;
+  const direct = f.payIn === false || state.transfer || noPermit;
+  // MiniPay pays its network fee in dollars, so an empty CELO balance there is nothing to warn about.
+  const needsCelo = direct && !wallet.isMiniPay && celo === 0n;
 
   async function pay() {
     if (!order) return;
@@ -127,8 +146,7 @@ export function Order() {
       }
       await load();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "";
-      if (!/reject|denied|cancelled/i.test(msg)) setError(msg === "no-wallet" ? t("order.noWallet") : /^Payment failed|unexpected_error|unknown reason/i.test(msg) ? t("order.refused") : msg || t("error.generic"));
+      setError(explain(e, t));
       await load().catch(() => {});
     } finally {
       setPaying(false);
@@ -147,7 +165,7 @@ export function Order() {
       setState(null);
       setMissing(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("error.generic"));
+      setError(explain(e, t));
     } finally {
       setRefreshing(false);
     }
@@ -242,6 +260,8 @@ export function Order() {
                   {wallet.canConnect ? (direct ? t("order.transfer") : t("order.gasless")) : t("order.noWallet")} · {left}s
                 </p>
                 <p className="order-fine">{t("order.guaranteed", { min: money(order.minOut, tc) })}</p>
+                {direct && wallet.canConnect && !wallet.isMiniPay && !needsCelo && <p className="order-fine">{t("fee.celo")}</p>}
+                {needsCelo && <p className="order-note order-note--problem">{t("fee.noCelo")}</p>}
                 {short !== null && <p className="order-note order-note--problem">{t("order.short", { have: money(held!, f), need: money(short, f) })}</p>}
               </div>
             )}

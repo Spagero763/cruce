@@ -47,11 +47,13 @@ run       leg 1   wARS -> USD₮   on the venue that quoted best, re-priced at f
   output wins. At fill time the leg is priced again; if the quoted venue has gone quiet the others
   are tried, and if nothing reaches the minimum the order is refunded.
 - **Payment.** x402 over Celo's facilitator: EIP-3009 for the dollar tokens, Permit2 with a sponsored
-  approval for the pesos, reais and naira. The payer never needs CELO. USDm, which the facilitator
-  doesn't settle, is paid by a plain transfer whose calldata ends with the order id, so it can only
-  ever pay that order. The same transfer is the fallback for every currency whenever the facilitator
-  refuses to settle: the refusal is recorded on the order with its full reason, and the page switches
-  rails on its own.
+  approval for the pesos and reais. The payer never needs CELO. USDm, which the facilitator doesn't
+  settle, is paid by a plain transfer whose calldata ends with the order id, so it can only ever pay
+  that order. cNGN has no permit, so a wallet that never approved Permit2 pays it the same way. The
+  same transfer is the fallback for every currency whenever the facilitator refuses to settle: the
+  refusal is recorded on the order with its full reason, and the page switches rails on its own. The
+  page says before the signature which rail an order takes, whether the wallet needs CELO for the
+  fee, and turns every wallet and chain error into one sentence that says what to do.
 - **Reference rates.** Official rates from public feeds, the Argentine ladder (oficial, blue, cripto)
   from its own API, and the street boards for Argentina and Nigeria read through a rented browser on
   [buy](https://usebuy.ai) with a language model parsing the page. A quote more than 8% from the

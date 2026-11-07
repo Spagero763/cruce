@@ -2,6 +2,7 @@ import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { erc20Abi, formatUnits, parseUnits, type Address, type Hex } from "viem";
 import { api, type AppConfig, type Currency } from "../lib/api";
+import { explain } from "../lib/explain";
 import { money, shortAddress } from "../lib/format";
 import { useI18n } from "../lib/i18n";
 import { useWallet } from "../lib/wallet";
@@ -92,8 +93,7 @@ export function WalletCard({ config }: { config: AppConfig }) {
       setAmount("");
       await refresh();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "";
-      if (!/reject|denied/i.test(msg)) setError(msg || t("error.generic"));
+      setError(explain(e, t));
     } finally {
       setSending(false);
     }

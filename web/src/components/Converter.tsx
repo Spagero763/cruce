@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { erc20Abi, formatUnits } from "viem";
 import { api, ApiError, type AppConfig, type Compare, type Currency, type Quote } from "../lib/api";
+import { explain } from "../lib/explain";
 import { money, percent, rateLine } from "../lib/format";
 import { useI18n } from "../lib/i18n";
 import { useWallet } from "../lib/wallet";
@@ -81,7 +82,7 @@ export function Converter({ config, start = {}, className = "", onQuote }: { con
       if (ac.signal.aborted) return;
       setQuote(null);
       onQuote?.(null);
-      setError(e instanceof Error ? e.message : t("error.generic"));
+      setError(explain(e, t));
     } finally {
       if (!ac.signal.aborted) setLoading(false);
     }
@@ -137,9 +138,8 @@ export function Converter({ config, start = {}, className = "", onQuote }: { con
       const { order } = await api.createOrder(q.id, other ? recipient : undefined);
       go(`/o/${order.id}`);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "";
       if (e instanceof ApiError && e.status === 410) void fetchQuote();
-      if (!/reject|denied|cancelled/i.test(msg)) setError(msg === "no-wallet" ? t("order.noWallet") : msg || t("error.generic"));
+      setError(explain(e, t));
     } finally {
       setBusy(false);
     }
@@ -179,6 +179,7 @@ export function Converter({ config, start = {}, className = "", onQuote }: { con
           </div>
         )}
         <FlagRail code={from} currencies={config.currencies} onPick={(c) => pick("from", c)} soon={t("cv.soon")} />
+        {(f.payIn === false || f.permit === false) && !wallet.isMiniPay && <p className="cv-fee mono">{t("fee.celo.short")}</p>}
       </div>
 
       <div className="cv-mid">

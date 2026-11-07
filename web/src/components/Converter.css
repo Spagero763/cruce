@@ -54,6 +54,12 @@
 }
 .cv-error { color: var(--problem); }
 
+.cv-fee {
+  margin-top: 10px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
 .cv-mid {
   position: relative;
   height: 0;

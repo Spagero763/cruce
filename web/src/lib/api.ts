@@ -13,6 +13,7 @@ export interface Currency {
   kind: "dollar" | "local";
   enabled: boolean;
   payIn?: boolean;
+  permit?: false;
 }
 
 export interface AppConfig {
