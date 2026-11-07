@@ -354,7 +354,7 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
       type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
       name: "Cruce",
       description:
-        "Currency exchange agent on Celo. Changes pesos, reais, naira and dollars into each other at the best price across Textile and Uniswap, settles the payment over x402, and sends the result to any wallet.",
+        "Currency exchange agent on Celo. Changes pesos, reais, naira and dollars into each other at the best price across Textile, Uniswap and Mento, settles the payment over x402, and sends the result to any wallet.",
       image: `${cfg.webOrigin}/icon.png`,
       services: [
         { name: "web", endpoint: cfg.webOrigin },

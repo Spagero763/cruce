@@ -1,6 +1,6 @@
 # cruce-sdk
 
-Quote and settle cross-currency conversions on Celo through [Cruce](https://cruce-phi.vercel.app):
+Quote and settle cross-currency conversions on Celo through [Cruce](https://usecruce.xyz):
 wARS, wBRL, wCOP, cNGN and the dollars into each other in one x402 payment, at the best price across
 Textile, Uniswap and Mento, with a guaranteed minimum or a refund. Or pay any x402 service in the
 currency you hold.

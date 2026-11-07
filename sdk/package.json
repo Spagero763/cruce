@@ -1,6 +1,6 @@
 {
   "name": "cruce-sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Quote and settle cross-currency conversions on Celo through Cruce: pesos, reais, naira and dollars in one call.",
   "license": "MIT",
   "author": "spagero763",
@@ -42,7 +42,7 @@
     "url": "git+https://github.com/Spagero763/cruce.git",
     "directory": "sdk"
   },
-  "homepage": "https://cruce-phi.vercel.app/developers",
+  "homepage": "https://usecruce.xyz/developers",
   "keywords": [
     "celo",
     "x402",
