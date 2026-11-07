@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /o/
+Disallow: /me
+
+Sitemap: https://usecruce.xyz/sitemap.xml

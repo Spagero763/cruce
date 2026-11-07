@@ -10,7 +10,7 @@
     { "source": "/api/:path*", "destination": "/api" },
     { "source": "/x402/:path*", "destination": "/api" },
     { "source": "/.well-known/:path*", "destination": "/api" },
-    { "source": "/((?!assets/|icon\\.svg|icon\\.png|og\\.png|favicon|apple-touch-icon|manifest\\.webmanifest|embed\\.js).*)", "destination": "/index.html" }
+    { "source": "/((?!assets/|icon\\.svg|icon\\.png|og\\.png|favicon|apple-touch-icon|manifest\\.webmanifest|embed\\.js|robots\\.txt|sitemap\\.xml).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

@@ -14,6 +14,12 @@ const Order = lazy(() => import("./pages/Order").then((m) => ({ default: m.Order
 const Me = lazy(() => import("./pages/Me").then((m) => ({ default: m.Me })));
 const Developers = lazy(() => import("./pages/Developers").then((m) => ({ default: m.Developers })));
 
+const TITLES: Record<string, string> = {
+  "/": "Cruce · change pesos, reais, naira and dollars on Celo in seconds",
+  "/developers": "Cruce for developers · one call quotes, one payment settles, a third of the fee is yours",
+  "/me": "Your money · Cruce",
+};
+
 function Shell() {
   const { pathname, hash } = useLocation();
 
@@ -24,6 +30,7 @@ function Shell() {
   useEffect(() => {
     requestAnimationFrame(() => ScrollTrigger.refresh());
     if (hash) document.querySelector(hash)?.scrollIntoView();
+    document.title = TITLES[pathname] ?? (pathname.startsWith("/o/") ? "Your conversion · Cruce" : "Cruce");
   }, [pathname, hash]);
 
   return (
