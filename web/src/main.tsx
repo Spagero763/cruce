@@ -1,4 +1,5 @@
 import { lazy, StrictMode, Suspense, useEffect } from "react";
+import { inject } from "@vercel/analytics";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Footer, Nav } from "./components/Chrome";
@@ -52,6 +53,8 @@ function Shell() {
     </>
   );
 }
+
+inject();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
