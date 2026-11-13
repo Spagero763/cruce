@@ -67,7 +67,7 @@ run       leg 1   wARS -> USD₮   on the venue that quoted best, re-priced at f
 
 ## Proof on mainnet
 
-Agent wallet [`0x242C4917FdaFB48A845BFD4356D81AE45EE6E77e`](https://celoscan.io/address/0x242C4917FdaFB48A845BFD4356D81AE45EE6E77e), ERC-8004 agent `9994`.
+Agent wallet [`0x242C4917FdaFB48A845BFD4356D81AE45EE6E77e`](https://celoscan.io/address/0x242C4917FdaFB48A845BFD4356D81AE45EE6E77e), ERC-8004 agent `9994`, Self Agent ID `203` (registry [`0xaC3D…5944`](https://celoscan.io/address/0xaC3DF9ABf80d0F5c020C06B04Cced27763355944), owned by the agent wallet).
 
 | What | Transaction |
 |---|---|

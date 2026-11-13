@@ -361,6 +361,8 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
         { name: "x402", endpoint: `${cfg.publicUrl}${PAY_ROUTE}` },
         { name: "quote", endpoint: `${cfg.publicUrl}/api/quote` },
       ],
+      // One verified human stands behind this agent: Self Agent ID, owned by the agent's wallet.
+      selfAgentId: { chainId: 42220, registry: "0xaC3DF9ABf80d0F5c020C06B04Cced27763355944", agentId: "203", agent: "0xe14B67946d8f6B81D772503Cd57617EeA727a327" },
       supportedTrust: ["reputation"],
     }),
   );
