@@ -157,6 +157,16 @@
   color: var(--muted);
 }
 
+.footer-links {
+  display: flex;
+  gap: 22px;
+  margin-top: 28px;
+  font-size: 0.9rem;
+}
+
+.footer-links a { color: var(--muted); }
+.footer-links a:hover { color: var(--fg); }
+
 @media (max-width: 640px) {
   .nav-inner { height: 64px; gap: 10px; }
   .nav-links { gap: 14px; margin-left: auto; }

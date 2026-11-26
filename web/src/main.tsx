@@ -14,12 +14,19 @@ import "./styles/base.css";
 const Order = lazy(() => import("./pages/Order").then((m) => ({ default: m.Order })));
 const Me = lazy(() => import("./pages/Me").then((m) => ({ default: m.Me })));
 const Developers = lazy(() => import("./pages/Developers").then((m) => ({ default: m.Developers })));
+const Help = lazy(() => import("./pages/Docs").then((m) => ({ default: m.Help })));
+const Privacy = lazy(() => import("./pages/Docs").then((m) => ({ default: m.Privacy })));
+const Terms = lazy(() => import("./pages/Docs").then((m) => ({ default: m.Terms })));
 
 const TITLES: Record<string, string> = {
   "/": "Cruce · change pesos, reais, naira and dollars on Celo in seconds",
   "/developers": "Cruce for developers · one call quotes, one payment settles, a third of the fee is yours",
   "/me": "Your money · Cruce",
+  "/help": "Help · Cruce",
+  "/privacy": "Privacy · Cruce",
+  "/terms": "Terms · Cruce",
 };
+const WITH_FOOTER = ["/", "/help", "/privacy", "/terms"];
 
 function Shell() {
   const { pathname, hash } = useLocation();
@@ -44,11 +51,14 @@ function Shell() {
             <Route path="/o/:id" element={<Order />} />
             <Route path="/me" element={<Me />} />
             <Route path="/developers" element={<Developers />} />
+            <Route path="/help" element={<Help />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </main>
-      {pathname === "/" && <Footer />}
+      {WITH_FOOTER.includes(pathname) && <Footer />}
       <div className="grain" aria-hidden />
     </>
   );

@@ -92,6 +92,11 @@ export function Footer() {
           Cruce
         </div>
         <p className="footer-line">{t("footer.line")}</p>
+        <nav className="footer-links">
+          <TLink to="/help">{t("footer.help")}</TLink>
+          <TLink to="/privacy">{t("footer.privacy")}</TLink>
+          <TLink to="/terms">{t("footer.terms")}</TLink>
+        </nav>
       </div>
     </footer>
   );

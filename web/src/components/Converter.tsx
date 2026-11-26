@@ -178,7 +178,7 @@ export function Converter({ config, start = {}, className = "", onQuote }: { con
             ))}
           </div>
         )}
-        <FlagRail code={from} currencies={config.currencies} onPick={(c) => pick("from", c)} soon={t("cv.soon")} />
+        <FlagRail code={from} currencies={config.currencies} onPick={(c) => pick("from", c)} />
         {(f.payIn === false || f.permit === false) && !wallet.isMiniPay && <p className="cv-fee mono">{t("fee.celo.short")}</p>}
       </div>
 
@@ -195,7 +195,7 @@ export function Converter({ config, start = {}, className = "", onQuote }: { con
         <output className={`cv-amount display ${loading ? "is-loading" : ""} ${!quote ? "is-empty" : ""}`}>
           <Rolling value={shown} />
         </output>
-        <FlagRail code={to} currencies={config.currencies} onPick={(c) => pick("to", c)} soon={t("cv.soon")} />
+        <FlagRail code={to} currencies={config.currencies} onPick={(c) => pick("to", c)} />
         <p className="cv-meta mono">
           {quote && rate ? (
             <>
@@ -271,8 +271,8 @@ function trimmed(decimal: string, c: Currency): string {
   return whole ? String(Math.floor(n)) : n.toFixed(2);
 }
 
-/** The currencies as a rail of flags. The chosen one slides into focus; the ones to come are dimmed. */
-function FlagRail({ code, currencies, onPick, soon }: { code: string; currencies: Currency[]; onPick: (code: string) => void; soon: string }) {
+/** The currencies that can be changed today, as a rail of flags. The chosen one slides into focus. */
+function FlagRail({ code, currencies, onPick }: { code: string; currencies: Currency[]; onPick: (code: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const first = useRef(true);
   // Only the rail scrolls, never the page, and not on first paint.
@@ -286,21 +286,14 @@ function FlagRail({ code, currencies, onPick, soon }: { code: string; currencies
   }, [code]);
   return (
     <div ref={ref} className="flags" role="radiogroup">
-      {currencies.map((c) => (
-        <button
-          key={c.code}
-          type="button"
-          role="radio"
-          aria-checked={c.code === code}
-          className={`flag ${c.code === code ? "is-on" : ""}`}
-          disabled={!c.enabled}
-          title={c.enabled ? c.fiat : soon}
-          onClick={() => onPick(c.code)}
-        >
-          <CurrencyMark code={c.code} />
-          <span>{c.label}</span>
-        </button>
-      ))}
+      {currencies
+        .filter((c) => c.enabled)
+        .map((c) => (
+          <button key={c.code} type="button" role="radio" aria-checked={c.code === code} className={`flag ${c.code === code ? "is-on" : ""}`} title={c.fiat} onClick={() => onPick(c.code)}>
+            <CurrencyMark code={c.code} />
+            <span>{c.label}</span>
+          </button>
+        ))}
     </div>
   );
 }

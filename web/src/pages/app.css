@@ -388,6 +388,33 @@ pre.code .c { color: color-mix(in oklab, var(--paper) 50%, var(--ink)); }
   .page { padding-top: 88px; }
 }
 
+.wrap.doc { max-width: calc(46rem + 2 * var(--gutter)); }
+.doc .lead { max-width: none; }
+.doc-note { margin-bottom: 28px; }
+
+.doc-section {
+  padding: 26px 0;
+  border-top: 1px solid var(--line);
+}
+
+.doc-section h2 {
+  font-size: var(--step-1);
+  margin: 0 0 10px;
+}
+
+.doc-body {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.doc-body ul {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+.doc-body li + li { margin-top: 6px; }
+.doc-body a { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; }
+
 @media (max-width: 560px) {
   .row > * { flex: 1 1 100%; }
 }
