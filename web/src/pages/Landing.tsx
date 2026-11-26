@@ -1,6 +1,6 @@
 import { forwardRef, memo, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Converter } from "../components/Converter";
+import { Converter, HOME } from "../components/Converter";
 import { Crossing } from "../components/Crossing";
 import { CurrencyMark } from "../components/CurrencyMark";
 import { Glow } from "../components/Glow";
@@ -51,13 +51,13 @@ const Marquee = memo(function Marquee() {
 });
 
 export function Landing() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [params] = useSearchParams();
   const [config, setConfig] = useState<AppConfig | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const stageRef = useRef<{ set(i: number): void }>(null);
   const quoteRef = useRef<Quote | null>(null);
-  const [pair, setPair] = useState<{ from: string; to: string }>({ from: "wARS", to: "wBRL" });
+  const [pair, setPair] = useState<{ from: string; to: string }>({ from: "USDT", to: HOME[lang] });
 
   useEffect(() => {
     void api.config().then(setConfig).catch(() => {});

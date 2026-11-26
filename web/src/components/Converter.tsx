@@ -3,7 +3,7 @@ import { erc20Abi, formatUnits } from "viem";
 import { api, ApiError, type AppConfig, type Compare, type Currency, type Quote } from "../lib/api";
 import { explain } from "../lib/explain";
 import { money, percent, rateLine } from "../lib/format";
-import { useI18n } from "../lib/i18n";
+import { useI18n, type Lang } from "../lib/i18n";
 import { useWallet } from "../lib/wallet";
 import { CurrencyMark } from "./CurrencyMark";
 import { Magnetic, Arrow } from "./Magnetic";
@@ -12,6 +12,9 @@ import { useTransitionNavigate } from "./Transition";
 import "./Converter.css";
 
 const DEFAULT_AMOUNT: Record<string, string> = { IDRX: "300000", wARS: "50000", wBRL: "250", wCOP: "150000", cNGN: "50000", wMXN: "800", wCLP: "40000", wPEN: "150", USDT: "50", USDC: "50", USAT: "50" };
+// Most people hold dollars and want the money of where they live, so that is the pair shown first.
+export const HOME: Record<Lang, string> = { en: "cNGN", es: "wARS", pt: "wBRL" };
+const ORDER = ["USDT", "USDC", "cNGN", "wARS", "wBRL", "wCOP", "wMXN", "wCLP", "wPEN", "USAT", "USDm", "IDRX"];
 
 export interface ConverterStart {
   from?: string;
@@ -22,12 +25,16 @@ export interface ConverterStart {
 
 /** The product: an amount, two currencies, a live price, one button. */
 export function Converter({ config, start = {}, className = "", onQuote }: { config: AppConfig; start?: ConverterStart; className?: string; onQuote?: (q: Quote | null) => void }) {
-  const { t, locale } = useI18n();
+  const { t, locale, lang } = useI18n();
   const wallet = useWallet();
   const go = useTransitionNavigate();
   const codes = config.currencies.filter((c) => c.enabled).map((c) => c.code);
-  const [from, setFrom] = useState(codes.includes(start.from ?? "") ? start.from! : "wARS");
-  const [to, setTo] = useState(codes.includes(start.to ?? "") && start.to !== from ? start.to! : from === "wBRL" ? "wARS" : "wBRL");
+  const [from, setFrom] = useState(codes.includes(start.from ?? "") ? start.from! : "USDT");
+  const [to, setTo] = useState(() => {
+    if (codes.includes(start.to ?? "") && start.to !== from) return start.to!;
+    const home = HOME[lang];
+    return home !== from && codes.includes(home) ? home : from === "USDT" ? "USDC" : "USDT";
+  });
   const [amount, setAmount] = useState(start.amount ?? DEFAULT_AMOUNT[from] ?? "50");
   const [quote, setQuote] = useState<{ quote: Quote; compare: Compare | null } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -288,6 +295,7 @@ function FlagRail({ code, currencies, onPick }: { code: string; currencies: Curr
     <div ref={ref} className="flags" role="radiogroup">
       {currencies
         .filter((c) => c.enabled)
+        .sort((a, b) => ORDER.indexOf(a.code) - ORDER.indexOf(b.code))
         .map((c) => (
           <button key={c.code} type="button" role="radio" aria-checked={c.code === code} className={`flag ${c.code === code ? "is-on" : ""}`} title={c.fiat} onClick={() => onPick(c.code)}>
             <CurrencyMark code={c.code} />
