@@ -28,6 +28,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     buyToken: (["USDT", "USDC", "USAT"].includes(env.BUY_TOKEN ?? "") ? env.BUY_TOKEN : "USDT") as "USDT" | "USDC" | "USAT",
     buyMaxUsd: Number(env.BUY_MAX_USD ?? 0.25),
     buyDailyUsd: Number(env.BUY_DAILY_USD ?? 3),
+    /** A paid x402 feed for the naira street rate; read at most once every this many hours. */
+    nairaRatesUrl: env.NAIRA_RATES_URL?.trim() || undefined,
+    nairaRatesHours: Number(env.NAIRA_RATES_HOURS ?? 4),
     publicUrl: (env.PUBLIC_URL || `http://localhost:${env.PORT || 8787}`).replace(/\/$/, ""),
     webOrigin: (env.WEB_ORIGIN || "http://localhost:5173").replace(/\/$/, ""),
     agentId: env.AGENT_ID ? BigInt(env.AGENT_ID) : undefined,

@@ -41,7 +41,15 @@ export function parseNumber(text: string): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-export function createRates(store: Store, buy: Buy, fetchFn: typeof fetch = fetch, log = console) {
+/** A street rate another agent sells over x402, bought on a schedule instead of read off a board. */
+export interface PaidFeed {
+  fiat: string;
+  source: string;
+  everyMs: number;
+  read(): Promise<number | null>;
+}
+
+export function createRates(store: Store, buy: Buy, fetchFn: typeof fetch = fetch, log = console, feeds: PaidFeed[] = []) {
   async function official(): Promise<Record<string, number>> {
     const cached = await store.getRate<Record<string, number>>("official");
     if (cached && Date.now() - cached.at < OFFICIAL_TTL) return cached.value;
@@ -99,16 +107,29 @@ export function createRates(store: Store, buy: Buy, fetchFn: typeof fetch = fetc
       return { perUsd, fiats, at: Date.now() };
     },
 
-    /** Reads the boards the agent doesn't control. Paid per rental, so once an hour is plenty. */
+    /** Buys the paid feeds that are due, then reads the boards. Both cost money, so neither runs often. */
     async refreshStreet(): Promise<number> {
+      let read = 0;
+      for (const f of feeds) {
+        const r = await store.getRate(`street:${f.fiat}`);
+        if (r && Date.now() - r.at < f.everyMs) continue;
+        try {
+          const value = await f.read();
+          if (value && Number.isFinite(value) && value > 0) {
+            await store.setRate(`street:${f.fiat}`, { value, source: f.source });
+            read++;
+          }
+        } catch (err) {
+          log.error("[rates] feed", f.fiat, String(err).slice(0, 200));
+        }
+      }
       const due = [];
       for (const b of BOARDS) {
         const r = await store.getRate<{ source?: string }>(`street:${b.fiat}`);
         if (!r || Date.now() - r.at > STREET_TTL) due.push(b);
       }
-      if (!due.length) return 0;
+      if (!due.length) return read;
       const browser = await buy.rentBrowser(3);
-      let read = 0;
       try {
         await browser.ready();
         for (const b of due) {
