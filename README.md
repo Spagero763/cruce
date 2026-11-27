@@ -78,8 +78,26 @@ Agent wallet [`0x242C4917FdaFB48A845BFD4356D81AE45EE6E77e`](https://celoscan.io/
 | Order: 2 USD₮ paid over x402, filled on Textile, paid out as wBRL, 18.5 s | pay [`0xd7a2ce…5460f`](https://celoscan.io/tx/0xd7a2ce0002ddf855e2741c35dad4ef829a2b93a794233b3f9d04576dd825460f) · fill [`0xab04dd…2746fc`](https://celoscan.io/tx/0xab04ddef69fecb8afc6a59768c0f08790703f2d31d5f469edcbb8f0d902746fc) · payout [`0x0289f4…c18c1`](https://celoscan.io/tx/0x0289f48ffa89764505b82d251ac9066ab0c07ea0653d47d28722232f101c18c1) |
 | An agent holding only pesos buys a buy inference call priced in USD₮: 49.97 wARS paid over x402, swapped on Uniswap v3, buy paid, change returned, answer handed back, 37.4 s | pay [`0x795a65…cd7ad`](https://celoscan.io/tx/0x795a65faaa134e1a3a35695271e6329ca28c85e8649019614519ebfacf4cd7ad) · swap [`0xa5f1e1…6618b`](https://celoscan.io/tx/0xa5f1e160dc4d0d45c4535736168f686de0d21cde2fc08f5e9f9e10ca87c6618b) · buy paid [`0xba9b13…dad47`](https://celoscan.io/tx/0xba9b13738cac8990f91b93cc4fbd633896fa6359dda9aaaee0e6a6674d7dad47) · change [`0x812a44…a8303`](https://celoscan.io/tx/0x812a44f976307ea95d962ec53ab58741bec7ea3dcabf069fe3950084c61a8303) |
 | Order: 10.7 wBRL paid over x402 (Permit2), two Textile legs, paid out as cNGN, 25.5 s | pay [`0x6250b0…974a2e`](https://celoscan.io/tx/0x6250b06ad52473560cd2ac001f005e7ccb19a11def49038996959c80ff974a2e) · leg 1 [`0xe7437e…ea11e6`](https://celoscan.io/tx/0xe7437ea694f9be308c15668c24fb056090c8a6f651a27468a2573a3d4fea11e6) · leg 2 [`0x1e2807…22fa8`](https://celoscan.io/tx/0x1e28076e007606907d4f79387a623964992822f520e357521f54229374622fa8) · payout [`0xafd889…87077f`](https://celoscan.io/tx/0xafd88983c587f085307cd1a952e961302309451abeae68f6bfa990444d87077f) |
+| One paid call to `/x402/convert`: 2 USD₮ paid over x402 by a wallet that never asked for a quote or an order, filled on Textile, paid out as USDC to a second wallet, 9.8 s | pay [`0x067c7b…babeb78`](https://celoscan.io/tx/0x067c7b9fe483f313ba450e0e48b32b8f71ca5f42b824c4d5af6106ea3babeb78) · fill [`0xbb04c1…a46156`](https://celoscan.io/tx/0xbb04c124dc19b5c676644e9797acf7459bbe9f0879bab6f061eb1fb985a46156) · payout [`0x1b4de0…4ab7dc`](https://celoscan.io/tx/0x1b4de0c848158272fd2d82e90caeb3bedd0810675aa585710f77d4ccce4ab7dc) |
 
 The buy calls the agent paid for are listed at `/api/proof/buy` with their settlement transactions.
+
+## Convert in one paid call
+
+An agent that has never spoken to Cruce can convert from the 402 alone. The query names the
+conversion, the 402 asks for exactly the amount to convert, and the signed payment opens the order.
+
+```
+GET or POST /x402/convert?from=USDT&to=cNGN&amount=5&recipient=0x…&minOut=7000
+```
+
+- `from`, `to`, `amount`: what you pay with, what you want, and how much of `from` to convert.
+- `recipient`: the wallet that receives. Left out, the payer receives.
+- `minOut`: the least of `to` you accept. When the guaranteed minimum at that moment is lower, the
+  payment is refused before anything is taken.
+
+The answer carries the order and the address to follow it at. The route is listed at
+`/.well-known/x402` for indexers, and `GET /api/quote` gives the estimate for free beforehand.
 
 ## Pay any x402 service in the currency you hold
 
