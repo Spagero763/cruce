@@ -11,7 +11,7 @@ import type { Availability } from "./availability.js";
 import { CURRENCIES, ENABLED, isCurrency, type CurrencyCode } from "./currencies.js";
 import type { Order, OrderEvent, Store } from "./db.js";
 import { RUNNING, type Engine } from "./engine.js";
-import { applyPayment, checkDirect, createPayments, PAY_ROUTE } from "./payments.js";
+import { applyPayment, checkDirect, CONVERT_ROUTE, convertOrderId, createPayments, parseConvert, PAY_ROUTE } from "./payments.js";
 import type { Rates, Reference } from "./rates.js";
 import { NoRoute, price, priceForOutput, type Venues } from "./router.js";
 import { hostOf, pickOffer, readOffers } from "./target.js";
@@ -358,7 +358,7 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
       image: `${cfg.webOrigin}/icon.png`,
       services: [
         { name: "web", endpoint: cfg.webOrigin },
-        { name: "x402", endpoint: `${cfg.publicUrl}${PAY_ROUTE}` },
+        { name: "x402", endpoint: `${cfg.publicUrl}${CONVERT_ROUTE}` },
         { name: "quote", endpoint: `${cfg.publicUrl}/api/quote` },
       ],
       // One verified human stands behind this agent: Self Agent ID, owned by the agent's wallet.
@@ -377,9 +377,61 @@ export function createApp(cfg: Config, store: Store, chain: Chain, venues: Venue
     if (!quote || Date.now() > quote.expiresAt + PAY_GRACE_MS) return c.json({ error: "that quote expired, get a fresh one" }, 410);
     await next();
   });
+  // What x402 indexers read before they probe the paid route.
+  app.get("/.well-known/x402", (c) =>
+    c.json({
+      version: 1,
+      resources: [`${cfg.publicUrl}${CONVERT_ROUTE}`],
+      name: "Cruce",
+      description:
+        "Change dollars, pesos, reais and naira into each other on Celo in one paid call. The query names the conversion (from, to, amount, recipient, minOut); the 402 asks for exactly the amount to convert.",
+      homepage: cfg.webOrigin,
+    }),
+  );
+
+  // The query is checked before it is priced, so a bad one gets a sentence instead of a 402.
+  app.use(CONVERT_ROUTE, async (c, next) => {
+    await limit(`convert:${ip(c)}`, 120, 3_600_000);
+    const ask = parseConvert(c.req.query());
+    if (!(await enabled(ask.from)) || !(await enabled(ask.to))) throw new Error("pick two of the currencies we change today");
+    if (ask.recipient?.toLowerCase() === chain.address.toLowerCase()) throw new Error("that is the agent's own address");
+    await next();
+  });
   app.use(paymentMiddleware(routes, server));
   // Settlement and the run happen after this handler, so the state is read back with a GET.
   app.post(PAY_ROUTE, (c) => c.json({ ok: true, id: c.req.param("id") }));
+
+  // Reached only with a verified payment. The order it pays for is opened here, at the price of
+  // this moment; any refusal cancels the settlement, so nothing is taken.
+  app.on(["GET", "POST"], CONVERT_ROUTE, async (c) => {
+    c.header("cache-control", "no-store");
+    const header = c.req.header("payment-signature") || c.req.header("x-payment");
+    if (!header) throw new HttpError(402, "payment required");
+    const answer = (order: Order) => c.json({ order: publicOrder(order), status: `${cfg.publicUrl}/api/orders/${order.id}` });
+    const id = convertOrderId(header);
+    const existing = await store.order(id);
+    if (existing) return answer(existing);
+    const ask = parseConvert(c.req.query());
+    const partner = ask.partner ? await store.partner(ask.partner) : null;
+    const ref = await rates.reference().catch(() => null);
+    const priced = await price(cfg, venues, ask.from, ask.to, ask.amountIn, ref);
+    if (ask.minOut !== null && priced.minOut < ask.minOut) throw new HttpError(409, "the price is below your minOut right now, nothing was taken");
+    const quote = await store.createQuote({
+      id: quoteId(),
+      from: ask.from,
+      to: ask.to,
+      amountIn: priced.amountIn.toString(),
+      estOut: priced.estOut.toString(),
+      minOut: priced.minOut.toString(),
+      fee: priced.fee.toString(),
+      usd: priced.usd,
+      route: priced.route,
+      partner: partner?.code ?? null,
+      target: null,
+      expiresAt: Date.now() + cfg.quoteTtlMs,
+    });
+    return answer(await store.createOrder(quote, id, ask.recipient));
+  });
 
   return app;
 }

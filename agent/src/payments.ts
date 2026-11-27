@@ -3,12 +3,13 @@
 import { HTTPFacilitatorClient, type HTTPRequestContext, type RoutesConfig } from "@x402/core/server";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { declareEip2612GasSponsoringExtension } from "@x402/extensions";
+import { declareDiscoveryExtension } from "@x402/extensions/bazaar";
 import { BUILDER_CODE, declareBuilderCodeExtension } from "@x402/extensions/builder-code";
 import { x402ResourceServer } from "@x402/hono";
-import type { Hex } from "viem";
+import { isAddress, keccak256, parseUnits, toHex, type Hex } from "viem";
 import type { Chain } from "./chain.js";
 import type { Config } from "./config.js";
-import { byAddress, CURRENCIES, type CurrencyCode } from "./currencies.js";
+import { byAddress, CURRENCIES, isCurrency, type CurrencyCode } from "./currencies.js";
 import type { Order, Store } from "./db.js";
 import type { Engine } from "./engine.js";
 
@@ -17,6 +18,56 @@ const ORDER_IN_PATH = /^\/x402\/orders\/(0x[0-9a-fA-F]{64})\/pay$/;
 
 export function orderIdFromPath(path: string): Hex | null {
   return (path.match(ORDER_IN_PATH)?.[1] as Hex | undefined) ?? null;
+}
+
+// One call that prices, takes the payment and converts: the trade is written in the query, so an
+// agent that has never spoken to Cruce can pay it from the 402 alone.
+export const CONVERT_ROUTE = "/x402/convert";
+const CONVERT_DEFAULT = { from: "USDT", to: "cNGN", amount: "5" };
+const DECIMAL = /^\d+(\.\d{1,18})?$/;
+
+export interface ConvertAsk {
+  from: CurrencyCode;
+  to: CurrencyCode;
+  amountIn: bigint;
+  recipient: string | null;
+  minOut: bigint | null;
+  partner: string | null;
+}
+
+/** Reads a conversion from the query. A bare request is the smallest example, so it can be priced. */
+export function parseConvert(q: Record<string, string | string[] | undefined>): ConvertAsk {
+  const one = (k: string) => {
+    const v = q[k];
+    return Array.isArray(v) ? v[0] : v;
+  };
+  const from = one("from") ?? CONVERT_DEFAULT.from;
+  const to = one("to") ?? CONVERT_DEFAULT.to;
+  const amount = one("amount") ?? CONVERT_DEFAULT.amount;
+  if (!isCurrency(from) || !isCurrency(to) || from === to) throw new Error("from and to must be two different currencies Cruce changes");
+  if (!CURRENCIES[from].payIn) throw new Error(`${CURRENCIES[from].label} can't be paid over x402, pay with another currency`);
+  if (!DECIMAL.test(amount)) throw new Error("amount must be a number, in the currency you pay with");
+  const amountIn = parseUnits(amount, CURRENCIES[from].decimals);
+  if (amountIn === 0n) throw new Error("amount must be more than zero");
+  const recipient = one("recipient");
+  if (recipient !== undefined && !isAddress(recipient)) throw new Error("recipient must be a wallet address");
+  const minOut = one("minOut");
+  if (minOut !== undefined && !DECIMAL.test(minOut)) throw new Error("minOut must be a number, in the currency you receive");
+  return { from, to, amountIn, recipient: recipient ?? null, minOut: minOut === undefined ? null : parseUnits(minOut, CURRENCIES[to].decimals), partner: one("partner") ?? null };
+}
+
+/**
+ * A one-call conversion has no order until its payment is verified, so the order takes its id from
+ * the signed payment. The handler that opens the order and the settlement that pays it both hold
+ * that header, and nothing else has to pass between them.
+ */
+export const convertOrderId = (paymentHeader: string): Hex => keccak256(toHex(paymentHeader));
+
+/** The order a settled payment belongs to: named in the path, or derived from the payment. */
+export function orderIdOf(request: { path?: string; paymentHeader?: string } | undefined): Hex | null {
+  const path = request?.path ?? "";
+  if (path === CONVERT_ROUTE) return request?.paymentHeader ? convertOrderId(request.paymentHeader) : null;
+  return orderIdFromPath(path);
 }
 
 interface Settled {
@@ -135,22 +186,59 @@ export function createPayments(cfg: Config, store: Store, chain: Chain, engine: 
     return { amount: order.amountIn, asset: c.address, extra: { ...c.domain, assetTransferMethod: c.method } };
   };
 
+  const convertPrice = async (ctx: HTTPRequestContext) => {
+    const ask = parseConvert(ctx.adapter.getQueryParams?.() ?? {});
+    const c = CURRENCIES[ask.from];
+    return { amount: ask.amountIn.toString(), asset: c.address, extra: { ...c.domain, assetTransferMethod: c.method } };
+  };
+
+  // The facilitator sponsors the wFIAT permit to Permit2 only when the 402 body declares this.
+  const extensions = {
+    ...declareEip2612GasSponsoringExtension(),
+    ...(cfg.attributionTag ? { [BUILDER_CODE]: declareBuilderCodeExtension(cfg.attributionTag) } : {}),
+  };
+
+  const convert = (method: "GET" | "POST") => ({
+    accepts: { scheme: "exact", network: cfg.caip2, payTo: chain.address, price: convertPrice, maxTimeoutSeconds: 300 },
+    description:
+      "Change one currency into another on Celo: dollars (USDT, USDC, USAT), pesos (wARS, wCOP), reais (wBRL) and naira (cNGN). The amount you pay is the amount converted; the result goes to recipient, or back to the payer.",
+    mimeType: "application/json",
+    extensions:
+      method === "GET"
+        ? {
+            ...extensions,
+            ...declareDiscoveryExtension({
+              input: { ...CONVERT_DEFAULT },
+              inputSchema: {
+                properties: {
+                  from: { type: "string", description: "Currency you pay with: USDT, USDC, USAT, wARS, wBRL, wCOP or cNGN" },
+                  to: { type: "string", description: "Currency to receive: any of those, or USDm" },
+                  amount: { type: "string", description: "How much of from to convert, as a decimal" },
+                  recipient: { type: "string", description: "Wallet that receives. Defaults to the payer" },
+                  minOut: { type: "string", description: "Refuse the payment unless at least this much of to is guaranteed" },
+                },
+                required: ["from", "to", "amount"],
+              },
+              output: { example: { order: { id: "0x…", status: "awaiting_payment", from: "USDT", to: "cNGN" }, status: "https://usecruce.xyz/api/orders/0x…" } },
+            }),
+          }
+        : extensions,
+  });
+
   const routes: RoutesConfig = {
     [`POST ${PAY_ROUTE}`]: {
       accepts: { scheme: "exact", network: cfg.caip2, payTo: chain.address, price, maxTimeoutSeconds: 300 },
       description: "Pay for a Cruce conversion. The agent changes it and sends the result to the recipient.",
       mimeType: "application/json",
-      // The facilitator sponsors the wFIAT permit to Permit2 only when the 402 body declares this.
-      extensions: {
-        ...declareEip2612GasSponsoringExtension(),
-        ...(cfg.attributionTag ? { [BUILDER_CODE]: declareBuilderCodeExtension(cfg.attributionTag) } : {}),
-      },
+      extensions,
     },
+    [`GET ${CONVERT_ROUTE}`]: convert("GET"),
+    [`POST ${CONVERT_ROUTE}`]: convert("POST"),
   };
 
-  // The order comes from the path that was priced, never from the payload: the client writes the
-  // payload's resource field, so trusting it would let one payment run another order.
-  const pathOf = (ctx: { transportContext?: unknown }) => (ctx.transportContext as { request?: { path?: string } } | undefined)?.request?.path ?? "";
+  // The order comes from the request that was priced, never from the payload: the client writes
+  // the payload's resource field, so trusting it would let one payment run another order.
+  const orderOf = (ctx: { transportContext?: unknown }) => orderIdOf((ctx.transportContext as { request?: { path?: string; paymentHeader?: string } } | undefined)?.request);
 
   const signerOf = (payload: { payload?: unknown }) => {
     const p = payload.payload as { authorization?: { from?: string }; permit2Authorization?: { from?: string } } | undefined;
@@ -166,7 +254,7 @@ export function createPayments(cfg: Config, store: Store, chain: Chain, engine: 
       if (!payer || req.payTo.toLowerCase() !== chain.address.toLowerCase()) throw new Error("settled somewhere else");
       const currency = byAddress(req.asset);
       if (!currency) throw new Error("unknown asset");
-      const id = orderIdFromPath(pathOf(ctx));
+      const id = orderOf(ctx);
       const order = id ? await store.order(id) : null;
       const outcome = await applyPayment(store, order, { payer, currency, amount: req.amount, tx });
       if (outcome === "applied") {
@@ -190,7 +278,7 @@ export function createPayments(cfg: Config, store: Store, chain: Chain, engine: 
     const payer = signerOf(ctx.paymentPayload as { payload?: unknown });
     const currency = byAddress(req.asset);
     if (!tx || !payer || !currency || req.payTo.toLowerCase() !== chain.address.toLowerCase()) return;
-    const id = orderIdFromPath(pathOf(ctx));
+    const id = orderOf(ctx);
     await store.addOrphan({ orderId: id, payer, currency, amount: req.amount, tx, reason: "unconfirmed_settlement" }, "unconfirmed");
   });
 
